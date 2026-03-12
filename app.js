@@ -376,6 +376,43 @@
     // Bio
     const bioEl = $('creatureBio');
     if (bioEl) bioEl.textContent = playerCreature.bio;
+
+    // First-time tips
+    showFirstTimeTips();
+  }
+
+  function showFirstTimeTips() {
+    try {
+      if (localStorage.getItem('lifemon_tips_shown')) return;
+      localStorage.setItem('lifemon_tips_shown', '1');
+    } catch(e) { return; }
+
+    const tips = document.createElement('div');
+    tips.className = 'tips-overlay';
+    tips.innerHTML = `
+      <div class="tips-card">
+        <h3>Consejos rapidos</h3>
+        <div class="tips-list">
+          <p>🎨 <strong>Toca el nombre</strong> de tu criatura para renombrarla</p>
+          <p>🌍 <strong>Explora regiones</strong> para encontrar enemigos, items y eventos</p>
+          <p>⚔️ <strong>Cada tipo</strong> es fuerte contra uno y debil contra otro — consulta la tabla</p>
+          <p>🎒 <strong>Usa objetos</strong> en batalla desde el boton Mochila</p>
+          <p>👹 <strong>Derrota al jefe diario</strong> para conseguir objetos raros</p>
+          <p>🔥 <strong>Racha de victorias</strong> = bonus de XP hasta x2</p>
+        </div>
+        <button class="btn-primary tips-close">¡Entendido!</button>
+      </div>`;
+    document.body.appendChild(tips);
+    tips.querySelector('.tips-close').addEventListener('click', () => {
+      tips.classList.add('fade-out');
+      setTimeout(() => tips.remove(), 300);
+    });
+    tips.addEventListener('click', (e) => {
+      if (e.target === tips) {
+        tips.classList.add('fade-out');
+        setTimeout(() => tips.remove(), 300);
+      }
+    });
   }
 
   // ─── Nickname tap ───

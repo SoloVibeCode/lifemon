@@ -127,7 +127,7 @@ body {
   box-shadow: 0 4px 20px var(--primary-glow);
 }
 .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 30px var(--primary-glow); }
-.btn-primary:active { transform: translateY(0); }
+.btn-primary:active { transform: scale(0.97); }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
 .btn-secondary {
@@ -135,6 +135,7 @@ body {
   border: 1px solid var(--blue);
 }
 .btn-secondary:hover { background: var(--bg2); }
+.btn-secondary:active { transform: scale(0.97); }
 
 .btn-icon { font-size: 18px; }
 
@@ -669,9 +670,9 @@ body {
 
 /* Explore buttons row */
 .explore-buttons {
-  display: flex; gap: 8px; margin-top: 16px;
+  display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px;
 }
-.explore-buttons .btn-bestiary { flex: 1; }
+.explore-buttons .btn-bestiary { flex: 1; min-width: 80px; }
 
 /* Inventory screen */
 .inventory-container {
@@ -860,6 +861,30 @@ body {
 }
 .achievement-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .ach-toast-icon { font-size: 28px; }
+
+/* First-time tips */
+.tips-overlay {
+  position: fixed; inset: 0; z-index: 250;
+  background: rgba(0,0,0,0.7);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.3s ease;
+}
+.tips-overlay.fade-out { animation: fadeOut 0.3s ease forwards; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+.tips-card {
+  background: var(--bg); border: 2px solid var(--primary);
+  border-radius: var(--radius); padding: 24px;
+  max-width: 380px; width: 100%;
+  animation: fadeUp 0.4s ease;
+}
+.tips-card h3 { font-size: 18px; margin-bottom: 16px; text-align: center; }
+.tips-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
+.tips-list p { font-size: 13px; line-height: 1.5; color: var(--muted); }
+.tips-list strong { color: var(--text); }
+.tips-close { margin-top: 12px; }
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 4px; }
