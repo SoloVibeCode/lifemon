@@ -57,6 +57,43 @@
     saveProgress();
   }
 
+  // ─── Bestiary ───
+  let bestiary = {}; // keyed by creature name
+
+  function loadBestiary() {
+    try {
+      const raw = localStorage.getItem('lifemon_bestiary');
+      if (raw) bestiary = JSON.parse(raw);
+    } catch(e) {}
+  }
+
+  function saveBestiary() {
+    try {
+      localStorage.setItem('lifemon_bestiary', JSON.stringify(bestiary));
+    } catch(e) {}
+  }
+
+  function registerCreature(creature, defeated) {
+    const key = creature.name;
+    if (!bestiary[key]) {
+      bestiary[key] = {
+        name: creature.name,
+        type: creature.type,
+        secondaryType: creature.secondaryType,
+        seed: creature.seed || Math.floor(Math.random() * 99999),
+        level: creature.level || 1,
+        seen: 1,
+        defeated: defeated ? 1 : 0,
+        firstSeen: Date.now(),
+      };
+    } else {
+      bestiary[key].seen++;
+      if (defeated) bestiary[key].defeated++;
+      if ((creature.level || 1) > bestiary[key].level) bestiary[key].level = creature.level;
+    }
+    saveBestiary();
+  }
+
   // ─── Persistence ───
   function saveProgress() {
     try {
@@ -272,6 +309,7 @@
   function showExploreScreen() {
     if (!playerCreature) return;
     showScreen('screen-explore');
+    updateBestiaryBadge();
 
     $('explorePlayerName').textContent = playerCreature.name;
     $('explorePlayerLevel').textContent = playerLevel;
@@ -336,6 +374,62 @@
   const btnBackFromExplore = $('btnBackFromExplore');
   if (btnBackFromExplore) {
     btnBackFromExplore.addEventListener('click', () => showScreen('screen-reveal'));
+  }
+
+  // ─── Bestiary screen ───
+  const btnBestiary = $('btnBestiary');
+  if (btnBestiary) {
+    btnBestiary.addEventListener('click', showBestiaryScreen);
+  }
+
+  const btnBackFromBestiary = $('btnBackFromBestiary');
+  if (btnBackFromBestiary) {
+    btnBackFromBestiary.addEventListener('click', showExploreScreen);
+  }
+
+  function showBestiaryScreen() {
+    showScreen('screen-bestiary');
+    const grid = $('bestiaryGrid');
+    const countEl = $('bestiaryCount');
+    if (!grid) return;
+
+    const entries = Object.values(bestiary).sort((a, b) => b.firstSeen - a.firstSeen);
+    const totalTypes = Object.keys(LifeEngine.TYPES).length;
+
+    // Count unique types seen
+    const typesSeen = new Set(entries.map(e => e.type)).size;
+    if (countEl) countEl.textContent = `${entries.length} encontrados · ${typesSeen}/${totalTypes} tipos`;
+
+    if (!entries.length) {
+      grid.innerHTML = '<div class="bestiary-empty">Aun no has encontrado criaturas.<br>¡Explora regiones para llenar tu bestiario!</div>';
+      return;
+    }
+
+    grid.innerHTML = entries.map(entry => {
+      const typeInfo = LifeEngine.TYPES[entry.type] || {};
+      return `
+        <div class="bestiary-entry ${entry.defeated > 0 ? 'defeated' : ''}" data-name="${entry.name}">
+          <canvas width="64" height="64" data-type="${entry.type}" data-seed="${entry.seed}" data-level="${entry.level}"></canvas>
+          <div class="bestiary-name">${entry.name}</div>
+          <div class="bestiary-type" style="color:${typeInfo.color || '#888'}">${typeInfo.icon || ''} ${typeInfo.name || entry.type}</div>
+          <div class="bestiary-seen">Visto ${entry.seen}x · ${entry.defeated > 0 ? 'Derrotado' : 'Sin derrotar'}</div>
+        </div>`;
+    }).join('');
+
+    // Render creature canvases
+    grid.querySelectorAll('canvas').forEach(canvas => {
+      const type = canvas.dataset.type;
+      const seed = parseInt(canvas.dataset.seed) || 0;
+      const level = parseInt(canvas.dataset.level) || 1;
+      CreatureRenderer.render(canvas, {
+        type, seed, typeInfo: LifeEngine.TYPES[type], level
+      }, { noShadow: true, level, noGlow: true });
+    });
+  }
+
+  function updateBestiaryBadge() {
+    const badge = $('bestiaryBadge');
+    if (badge) badge.textContent = Object.keys(bestiary).length;
   }
 
   // ─── Share creature ───
@@ -677,6 +771,9 @@
     battleActive = false;
     const prevLevel = playerLevel;
 
+    // Register enemy in bestiary
+    if (enemyCreature) registerCreature(enemyCreature, won);
+
     if (won) {
       winsCount++;
       const enemyLv = enemyCreature.level || 1;
@@ -785,13 +882,15 @@
       playerLevel = 1;
       winsCount = 0;
       battlesCount = 0;
-      try { localStorage.removeItem('lifemon_save'); } catch(e) {}
+      try { localStorage.removeItem('lifemon_save'); localStorage.removeItem('lifemon_bestiary'); } catch(e) {}
+      bestiary = {};
       if (lifeInput) lifeInput.value = '';
       showScreen('screen-intro');
     });
   }
 
   // ─── Load saved game on startup ───
+  loadBestiary();
   const saved = loadProgress();
   if (saved && saved.text) {
     const intro = document.querySelector('.intro-container');

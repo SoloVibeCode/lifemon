@@ -91,6 +91,9 @@
         <span id="exploreWins">0 victorias</span>
         <span id="exploreBattles">0 batallas</span>
       </div>
+      <button class="btn-bestiary" id="btnBestiary">
+        <span>📖</span> Bestiario <span class="bestiary-badge" id="bestiaryBadge">0</span>
+      </button>
     </div>
   </div>
 
@@ -155,6 +158,19 @@
           <span class="btn-icon">🔄</span> Nueva vida
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- SCREEN: Bestiary -->
+  <div class="screen" id="screen-bestiary">
+    <div class="bestiary-container">
+      <div class="bestiary-header">
+        <button class="btn-back" id="btnBackFromBestiary">← Explorar</button>
+        <h2 class="bestiary-title">Bestiario</h2>
+        <span class="bestiary-count" id="bestiaryCount">0/0</span>
+      </div>
+      <p class="bestiary-subtitle">Criaturas que has encontrado en tus aventuras</p>
+      <div class="bestiary-grid" id="bestiaryGrid"></div>
     </div>
   </div>
 
