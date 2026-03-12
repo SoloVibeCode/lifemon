@@ -366,6 +366,33 @@ body {
 .move-type { font-size: 10px; color: var(--muted); display: block; margin-top: 2px; }
 .move-pp { font-size: 10px; color: var(--blue); }
 
+/* Critical hit effects */
+.shake-crit {
+  animation: shakeCrit 0.5s ease-in-out !important;
+}
+@keyframes shakeCrit {
+  0%, 100% { transform: translate(0); }
+  10% { transform: translate(-8px, -3px); }
+  20% { transform: translate(8px, 3px); }
+  30% { transform: translate(-6px, -2px); }
+  40% { transform: translate(6px, 2px); }
+  50% { transform: translate(-4px, -1px); }
+  60% { transform: translate(4px, 1px); }
+  70% { transform: translate(-2px); }
+  80% { transform: translate(2px); }
+}
+
+.crit-flash {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(255, 255, 255, 0.3);
+  animation: critFlash 0.4s ease-out forwards;
+  pointer-events: none;
+}
+@keyframes critFlash {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 .battle-buff {
   display: inline-flex; align-items: center; gap: 4px;
   background: rgba(245, 197, 24, 0.15); border: 1px solid var(--accent);

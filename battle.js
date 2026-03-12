@@ -12,6 +12,8 @@ const BattleSystem = (() => {
     return 1;
   }
 
+  let lastHitCritical = false;
+
   function calcDamage(attacker, move, defender) {
     if (move.heal) return 0;
 
@@ -28,10 +30,16 @@ const BattleSystem = (() => {
     // STAB (Same Type Attack Bonus)
     const stab = (move.type === attacker.type || move.type === attacker.secondaryType) ? 1.3 : 1;
 
+    // Critical hit (10% chance, 1.5x damage)
+    const critRoll = Math.random();
+    const critThreshold = 0.10 + (attacker.stats.spd / 1000); // speed slightly boosts crit
+    lastHitCritical = critRoll < critThreshold;
+    const crit = lastHitCritical ? 1.5 : 1;
+
     // Random variance (0.85 - 1.0)
     const rand = 0.85 + Math.random() * 0.15;
 
-    return Math.max(1, Math.floor(base * mult * stab * rand));
+    return Math.max(1, Math.floor(base * mult * stab * crit * rand));
   }
 
   function calcHeal(move, creature) {
@@ -76,5 +84,7 @@ const BattleSystem = (() => {
     return best;
   }
 
-  return { calcDamage, calcHeal, effectivenessText, pickEnemyMove, typeMultiplier };
+  function wasCritical() { return lastHitCritical; }
+
+  return { calcDamage, calcHeal, effectivenessText, pickEnemyMove, typeMultiplier, wasCritical };
 })();

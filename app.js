@@ -938,9 +938,12 @@
         activeBuff.used = true;
         activeBuff = null;
       }
+      const isCrit = BattleSystem.wasCritical();
       enemyHp -= dmg;
       setLog(`${playerCreature.name} usa ${move.name}! Hace ${dmg} de dano.`);
+      if (isCrit) appendLog('💥 ¡Golpe critico!');
       SoundEngine.hit();
+      if (isCrit) setTimeout(() => SoundEngine.superEffective(), 200);
 
       const eff = BattleSystem.effectivenessText(move.type, enemyCreature.type);
       if (eff) {
@@ -949,11 +952,19 @@
         else SoundEngine.notEffective();
       }
 
-      // Shake enemy
+      // Shake enemy (stronger on crit)
       const enemyWrap = document.querySelector('.enemy-creature');
       if (enemyWrap) {
-        enemyWrap.classList.add('shake');
-        setTimeout(() => enemyWrap.classList.remove('shake'), 300);
+        enemyWrap.classList.add(isCrit ? 'shake-crit' : 'shake');
+        setTimeout(() => { enemyWrap.classList.remove('shake', 'shake-crit'); }, isCrit ? 500 : 300);
+      }
+
+      // Screen flash on crit
+      if (isCrit) {
+        const flash = document.createElement('div');
+        flash.className = 'crit-flash';
+        document.body.appendChild(flash);
+        setTimeout(() => flash.remove(), 400);
       }
     }
 
@@ -979,6 +990,7 @@
         SoundEngine.heal();
       } else {
         let dmg = BattleSystem.calcDamage(enemyCreature, enemyMove, playerCreature);
+        const enemyCrit = BattleSystem.wasCritical();
         // Apply shield buff
         if (activeBuff && activeBuff.type === 'shield' && !activeBuff.used) {
           dmg = Math.floor(dmg * 0.5);
@@ -987,6 +999,7 @@
         }
         playerHp -= dmg;
         appendLog(`${enemyCreature.name} usa ${enemyMove.name}! Hace ${dmg} de dano.`);
+        if (enemyCrit) appendLog('💥 ¡Golpe critico!');
         SoundEngine.hit();
 
         const eff = BattleSystem.effectivenessText(enemyMove.type, playerCreature.type);
@@ -995,8 +1008,8 @@
         // Shake player
         const playerWrap = document.querySelector('.player-creature');
         if (playerWrap) {
-          playerWrap.classList.add('shake');
-          setTimeout(() => playerWrap.classList.remove('shake'), 300);
+          playerWrap.classList.add(enemyCrit ? 'shake-crit' : 'shake');
+          setTimeout(() => { playerWrap.classList.remove('shake', 'shake-crit'); }, enemyCrit ? 500 : 300);
         }
       }
     }
