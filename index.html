@@ -46,7 +46,7 @@
       <div class="reveal-flash" id="revealFlash"></div>
       <div class="creature-card" id="creatureCard">
         <div class="card-header">
-          <span class="creature-name" id="creatureName"></span>
+          <span class="creature-name" id="creatureName" title="Toca para renombrar"></span>
           <span class="creature-level">Nv. 1</span>
         </div>
         <div class="card-type-badge" id="creatureTypeBadge"></div>
@@ -100,6 +100,9 @@
         </button>
         <button class="btn-bestiary" id="btnAchievements">
           <span>🏅</span> Logros
+        </button>
+        <button class="btn-bestiary" id="btnTypeChart">
+          <span>📊</span> Tipos
         </button>
       </div>
     </div>
@@ -180,6 +183,18 @@
       </div>
       <p class="bestiary-subtitle">Criaturas que has encontrado en tus aventuras</p>
       <div class="bestiary-grid" id="bestiaryGrid"></div>
+    </div>
+  </div>
+
+  <!-- SCREEN: Type Chart -->
+  <div class="screen" id="screen-typechart">
+    <div class="typechart-container">
+      <div class="typechart-header">
+        <button class="btn-back" id="btnBackFromTypeChart">← Explorar</button>
+        <h2 class="typechart-title">Tabla de Tipos</h2>
+      </div>
+      <p class="typechart-subtitle">Cada tipo es fuerte contra uno y debil contra otro</p>
+      <div class="typechart-grid" id="typeChartGrid"></div>
     </div>
   </div>
 

@@ -190,6 +190,9 @@
     saveBestiary();
   }
 
+  // ─── Nickname ───
+  let creatureNickname = '';
+
   // ─── Persistence ───
   function saveProgress() {
     try {
@@ -200,6 +203,7 @@
         wins: winsCount,
         battles: battlesCount,
         stats: playerCreature?.stats,
+        nickname: creatureNickname,
       }));
     } catch(e) {}
   }
@@ -299,9 +303,9 @@
 
     showScreen('screen-reveal');
 
-    // Name
-    const nameEl = $('creatureName');
-    if (nameEl) nameEl.textContent = playerCreature.name;
+    // Name (use nickname if set)
+    const nameDisplay = $('creatureName');
+    if (nameDisplay) nameDisplay.textContent = creatureNickname || playerCreature.name;
 
     // Level display with evolution stage
     const lvEl = document.querySelector('.creature-level');
@@ -371,6 +375,23 @@
     // Bio
     const bioEl = $('creatureBio');
     if (bioEl) bioEl.textContent = playerCreature.bio;
+  }
+
+  // ─── Nickname tap ───
+  const nameEl = $('creatureName');
+  if (nameEl) {
+    nameEl.style.cursor = 'pointer';
+    nameEl.addEventListener('click', () => {
+      if (!playerCreature) return;
+      const current = creatureNickname || playerCreature.name;
+      const newName = prompt('Renombra tu criatura:', current);
+      if (newName && newName.trim()) {
+        creatureNickname = newName.trim().substring(0, 20);
+        nameEl.textContent = creatureNickname;
+        saveProgress();
+        showInventoryToast('Criatura renombrada!');
+      }
+    });
   }
 
   // ─── Navigation buttons ───
@@ -553,7 +574,7 @@
     playerCreature.abilities.forEach(a => a.pp = a.maxPp);
     enemyCreature.abilities.forEach(a => a.pp = a.maxPp);
 
-    $('playerName').textContent = playerCreature.name;
+    $('playerName').textContent = creatureNickname || playerCreature.name;
     $('enemyName').textContent = enemyCreature.name;
     $('enemyLevel').textContent = enemyCreature.level || 1;
     $('logPlayerName').textContent = playerCreature.name;
@@ -794,7 +815,7 @@
     enemyCreature.abilities.forEach(a => a.pp = a.maxPp);
 
     // Render names
-    $('playerName').textContent = playerCreature.name;
+    $('playerName').textContent = creatureNickname || playerCreature.name;
     $('enemyName').textContent = enemyCreature.name;
     $('enemyLevel').textContent = enemyCreature.level || enemyLevel;
     $('logPlayerName').textContent = playerCreature.name;
@@ -1145,6 +1166,7 @@
       bestiary = {};
       inventory = [];
       unlockedAchievements = {};
+      creatureNickname = '';
       if (lifeInput) lifeInput.value = '';
       showScreen('screen-intro');
     });
@@ -1414,6 +1436,37 @@
     btnBackFromAchievements.addEventListener('click', () => showExploreScreen());
   }
 
+  // ─── Type chart screen ───
+  function showTypeChartScreen() {
+    showScreen('screen-typechart');
+    const grid = $('typeChartGrid');
+    if (!grid) return;
+
+    grid.innerHTML = Object.entries(LifeEngine.TYPES).map(([key, type]) => {
+      const strong = LifeEngine.TYPES[type.strong];
+      const weak = LifeEngine.TYPES[type.weak];
+      return `<div class="typechart-row" style="border-left: 3px solid ${type.color}">
+        <div class="tc-type">
+          <span class="tc-icon">${type.icon}</span>
+          <span class="tc-name" style="color:${type.color}">${type.name}</span>
+        </div>
+        <div class="tc-matchups">
+          <span class="tc-strong">⚡ Fuerte vs ${strong ? strong.icon + ' ' + strong.name : '?'}</span>
+          <span class="tc-weak">🛡️ Debil vs ${weak ? weak.icon + ' ' + weak.name : '?'}</span>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  const btnTypeChart = $('btnTypeChart');
+  if (btnTypeChart) {
+    btnTypeChart.addEventListener('click', showTypeChartScreen);
+  }
+  const btnBackFromTypeChart = $('btnBackFromTypeChart');
+  if (btnBackFromTypeChart) {
+    btnBackFromTypeChart.addEventListener('click', () => showExploreScreen());
+  }
+
   // ─── Load saved game on startup ───
   loadBestiary();
   loadInventory();
@@ -1431,6 +1484,7 @@
         playerLevel = saved.level || 1;
         winsCount = saved.wins || 0;
         battlesCount = saved.battles || 0;
+        creatureNickname = saved.nickname || '';
         playerCreature = LifeEngine.generate(saved.text);
         if (playerCreature && saved.stats) {
           playerCreature.stats = { ...saved.stats };
