@@ -748,6 +748,16 @@ body {
 }
 .inventory-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+/* Streak display */
+.explore-streak {
+  color: var(--accent); font-weight: 700; font-size: 13px;
+  animation: streakPulse 1s ease-in-out infinite;
+}
+@keyframes streakPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
 /* Daily boss */
 .daily-boss-wrap { margin-bottom: 12px; }
 .daily-boss {

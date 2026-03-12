@@ -34,6 +34,7 @@
   }
 
   let evolvedThisBattle = false;
+  let winStreak = 0;
 
   function addXp(amount) {
     playerXp += amount;
@@ -434,6 +435,11 @@
     $('explorePlayerLevel').textContent = playerLevel;
     $('exploreWins').textContent = `${winsCount} victorias`;
     $('exploreBattles').textContent = `${battlesCount} batallas`;
+    const streakEl = $('exploreStreak');
+    if (streakEl) {
+      streakEl.textContent = winStreak > 0 ? `🔥 Racha: ${winStreak}` : '';
+      streakEl.style.display = winStreak > 0 ? 'inline' : 'none';
+    }
 
     // Daily boss
     renderDailyBoss();
@@ -1062,8 +1068,10 @@
 
     if (won) {
       winsCount++;
+      winStreak++;
       const bossBonus = enemyCreature.isBoss ? 3 : 1;
-      const xpGain = (15 + enemyLv * 10 + Math.floor(Math.random() * 10)) * bossBonus;
+      const streakBonus = 1 + Math.min(1, winStreak * 0.1); // up to 2x at 10 streak
+      const xpGain = Math.floor((15 + enemyLv * 10 + Math.floor(Math.random() * 10)) * bossBonus * streakBonus);
       addXp(xpGain);
 
       setTimeout(() => {
@@ -1085,6 +1093,7 @@
         }
 
         let text = `${playerCreature.name} derroto a ${enemyCreature.name}! +${xpGain} XP`;
+        if (winStreak > 1) text += ` (racha x${winStreak}!)`;
         if (evolvedThisBattle) {
           text += ` — ¡Tu criatura evoluciono a forma ${evoName}! Nueva apariencia y stats potenciados.`;
         } else if (playerLevel > prevLevel) {
@@ -1097,6 +1106,8 @@
         checkAchievements();
       }, 1000);
     } else {
+      const lostStreak = winStreak;
+      winStreak = 0;
       const xpGain = 5 + Math.floor(Math.random() * 5);
       addXp(xpGain);
 
@@ -1105,7 +1116,7 @@
         $('resultIcon').textContent = '💀';
         $('resultTitle').textContent = 'Derrotado...';
         SoundEngine.defeat();
-        $('resultText').textContent = `${enemyCreature.name} derroto a ${playerCreature.name}. +${xpGain} XP de consolacion. La vida sigue.`;
+        $('resultText').textContent = `${enemyCreature.name} derroto a ${playerCreature.name}. +${xpGain} XP de consolacion.${lostStreak > 2 ? ` Racha de ${lostStreak} victorias perdida.` : ''} La vida sigue.`;
         renderResultXpBar();
         renderResultDrops(droppedItems);
         checkAchievements();
