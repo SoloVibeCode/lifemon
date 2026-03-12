@@ -49,7 +49,14 @@ body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
-.screen.active { display: flex; }
+.screen.active {
+  display: flex;
+  animation: screenFadeIn 0.3s ease-out;
+}
+@keyframes screenFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 /* ===================== INTRO ===================== */
 .intro-container {
@@ -358,6 +365,18 @@ body {
 
 .move-type { font-size: 10px; color: var(--muted); display: block; margin-top: 2px; }
 .move-pp { font-size: 10px; color: var(--blue); }
+
+.battle-buff {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: rgba(245, 197, 24, 0.15); border: 1px solid var(--accent);
+  border-radius: 6px; padding: 2px 8px; font-size: 11px;
+  color: var(--accent); font-weight: 600; margin-top: 4px;
+  animation: buffPulse 1.5s ease-in-out infinite;
+}
+@keyframes buffPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
 
 /* ===================== RESULT ===================== */
 .result-container {

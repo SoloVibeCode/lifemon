@@ -745,6 +745,8 @@
       return item && (item.category === 'consumible' && (item.heal || item.healFull) || item.category === 'batalla');
     });
 
+    const buffHtml = activeBuff ? `<div class="battle-buff">${activeBuff.type === 'power' ? '🔥 Poder x1.5' : '🛡️ Escudo x0.5'}</div>` : '';
+
     movesEl.innerHTML = playerCreature.abilities.map((move, i) => {
       const typeInfo = LifeEngine.TYPES[move.type] || {};
       const disabled = move.pp <= 0 ? 'disabled' : '';
@@ -759,7 +761,7 @@
       style="border-bottom: 3px solid #f1fa8c">
       🎒 Mochila
       <span class="move-type">Usar un objeto</span>
-    </button>` : '');
+    </button>` : '') + buffHtml;
 
     // Add event listeners
     movesEl.querySelectorAll('.move-btn[data-idx]').forEach(btn => {
