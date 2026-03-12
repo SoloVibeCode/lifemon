@@ -899,10 +899,17 @@
     // Register enemy in bestiary
     if (enemyCreature) registerCreature(enemyCreature, won);
 
+    // Track perfect win
+    lastBattlePerfect = won && playerHp === playerCreature.stats.hp;
+
     // Roll item drops
     const enemyLv = enemyCreature.level || 1;
     const droppedItems = LifeEngine.rollItemDrops(enemyLv, won);
-    droppedItems.forEach(id => addItem(id));
+    droppedItems.forEach(id => {
+      addItem(id);
+      const item = LifeEngine.ITEMS[id];
+      if (item && item.rarity === 'legendario') foundLegendary = true;
+    });
 
     if (won) {
       winsCount++;
@@ -937,6 +944,7 @@
 
         renderResultXpBar();
         renderResultDrops(droppedItems);
+        checkAchievements();
       }, 1000);
     } else {
       const xpGain = 5 + Math.floor(Math.random() * 5);
@@ -950,6 +958,7 @@
         $('resultText').textContent = `${enemyCreature.name} derroto a ${playerCreature.name}. +${xpGain} XP de consolacion. La vida sigue.`;
         renderResultXpBar();
         renderResultDrops(droppedItems);
+        checkAchievements();
       }, 1000);
     }
   }
@@ -1032,9 +1041,10 @@
       playerLevel = 1;
       winsCount = 0;
       battlesCount = 0;
-      try { localStorage.removeItem('lifemon_save'); localStorage.removeItem('lifemon_bestiary'); localStorage.removeItem('lifemon_inventory'); } catch(e) {}
+      try { localStorage.removeItem('lifemon_save'); localStorage.removeItem('lifemon_bestiary'); localStorage.removeItem('lifemon_inventory'); localStorage.removeItem('lifemon_achievements'); } catch(e) {}
       bestiary = {};
       inventory = [];
+      unlockedAchievements = {};
       if (lifeInput) lifeInput.value = '';
       showScreen('screen-intro');
     });
@@ -1205,9 +1215,109 @@
     });
   }
 
+  // ─── Achievements ───
+  const ACHIEVEMENTS = [
+    { id: 'first_blood',   name: 'Primera Sangre',    icon: '🗡️', desc: 'Gana tu primera batalla',           check: () => winsCount >= 1 },
+    { id: 'fighter_10',    name: 'Luchador',           icon: '⚔️', desc: 'Gana 10 batallas',                  check: () => winsCount >= 10 },
+    { id: 'champion_25',   name: 'Campeon',            icon: '🏆', desc: 'Gana 25 batallas',                  check: () => winsCount >= 25 },
+    { id: 'legend_100',    name: 'Leyenda',            icon: '👑', desc: 'Gana 100 batallas',                 check: () => winsCount >= 100 },
+    { id: 'collector_5',   name: 'Coleccionista',      icon: '📖', desc: 'Registra 5 criaturas en el bestiario', check: () => Object.keys(bestiary).length >= 5 },
+    { id: 'collector_20',  name: 'Enciclopedista',     icon: '📚', desc: 'Registra 20 criaturas en el bestiario', check: () => Object.keys(bestiary).length >= 20 },
+    { id: 'hoarder',       name: 'Acaparador',         icon: '🎒', desc: 'Ten 10+ objetos en la mochila',     check: () => inventory.length >= 10 },
+    { id: 'evolved',       name: 'Evolucion',          icon: '🌟', desc: 'Evoluciona tu criatura',            check: () => playerLevel >= 5 },
+    { id: 'mega',          name: 'Mega Evolucion',     icon: '💎', desc: 'Alcanza la forma Mega',             check: () => playerLevel >= 10 },
+    { id: 'lv_20',         name: 'Veterano',           icon: '🎖️', desc: 'Alcanza el nivel 20',               check: () => playerLevel >= 20 },
+    { id: 'perfect_win',   name: 'Victoria Perfecta',  icon: '✨', desc: 'Gana sin recibir dano',             check: () => lastBattlePerfect },
+    { id: 'legendary_drop',name: 'Hallazgo Legendario',icon: '🔮', desc: 'Encuentra un objeto legendario',    check: () => foundLegendary },
+  ];
+
+  let unlockedAchievements = {};
+  let lastBattlePerfect = false;
+  let foundLegendary = false;
+
+  function loadAchievements() {
+    try {
+      const raw = localStorage.getItem('lifemon_achievements');
+      if (raw) unlockedAchievements = JSON.parse(raw);
+    } catch(e) {}
+  }
+
+  function saveAchievements() {
+    try {
+      localStorage.setItem('lifemon_achievements', JSON.stringify(unlockedAchievements));
+    } catch(e) {}
+  }
+
+  function checkAchievements() {
+    let newlyUnlocked = [];
+    for (const ach of ACHIEVEMENTS) {
+      if (unlockedAchievements[ach.id]) continue;
+      try {
+        if (ach.check()) {
+          unlockedAchievements[ach.id] = Date.now();
+          newlyUnlocked.push(ach);
+        }
+      } catch(e) {}
+    }
+    if (newlyUnlocked.length > 0) {
+      saveAchievements();
+      // Show toast for each new achievement
+      newlyUnlocked.forEach((ach, i) => {
+        setTimeout(() => showAchievementToast(ach), i * 1500);
+      });
+    }
+  }
+
+  function showAchievementToast(ach) {
+    const toast = document.createElement('div');
+    toast.className = 'achievement-toast';
+    toast.innerHTML = `<span class="ach-toast-icon">${ach.icon}</span><div><strong>Logro desbloqueado!</strong><br>${ach.name}</div>`;
+    document.body.appendChild(toast);
+    SoundEngine.levelUp();
+    setTimeout(() => toast.classList.add('show'), 10);
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => toast.remove(), 400);
+    }, 3000);
+  }
+
+  function showAchievementsScreen() {
+    showScreen('screen-achievements');
+    const grid = $('achievementsGrid');
+    if (!grid) return;
+
+    const total = ACHIEVEMENTS.length;
+    const unlocked = Object.keys(unlockedAchievements).length;
+    const countEl = $('achievementsCount');
+    if (countEl) countEl.textContent = `${unlocked}/${total}`;
+
+    grid.innerHTML = ACHIEVEMENTS.map(ach => {
+      const done = !!unlockedAchievements[ach.id];
+      return `<div class="ach-item ${done ? 'unlocked' : 'locked'}">
+        <span class="ach-icon">${done ? ach.icon : '🔒'}</span>
+        <div class="ach-info">
+          <span class="ach-name">${ach.name}</span>
+          <span class="ach-desc">${ach.desc}</span>
+        </div>
+        ${done ? '<span class="ach-check">✓</span>' : ''}
+      </div>`;
+    }).join('');
+  }
+
+  // Achievements button
+  const btnAchievements = $('btnAchievements');
+  if (btnAchievements) {
+    btnAchievements.addEventListener('click', showAchievementsScreen);
+  }
+  const btnBackFromAchievements = $('btnBackFromAchievements');
+  if (btnBackFromAchievements) {
+    btnBackFromAchievements.addEventListener('click', () => showExploreScreen());
+  }
+
   // ─── Load saved game on startup ───
   loadBestiary();
   loadInventory();
+  loadAchievements();
   const saved = loadProgress();
   if (saved && saved.text) {
     const intro = document.querySelector('.intro-container');
