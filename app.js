@@ -430,10 +430,13 @@
     const invBadge = $('inventoryBadge');
     if (invBadge) invBadge.textContent = inventory.length;
 
-    $('explorePlayerName').textContent = playerCreature.name;
+    $('explorePlayerName').textContent = creatureNickname || playerCreature.name;
     $('explorePlayerLevel').textContent = playerLevel;
     $('exploreWins').textContent = `${winsCount} victorias`;
     $('exploreBattles').textContent = `${battlesCount} batallas`;
+
+    // Daily boss
+    renderDailyBoss();
 
     const grid = $('regionGrid');
     if (!grid) return;
@@ -1023,9 +1026,21 @@
     // Track perfect win
     lastBattlePerfect = won && playerHp === playerCreature.stats.hp;
 
-    // Roll item drops
+    // Roll item drops (boss gives guaranteed rare+ drops)
     const enemyLv = enemyCreature.level || 1;
-    const droppedItems = LifeEngine.rollItemDrops(enemyLv, won);
+    let droppedItems;
+    if (enemyCreature.isBoss && won) {
+      markDailyBossDefeated();
+      // Guaranteed 2 rare+ items for boss
+      const rareItems = Object.values(LifeEngine.ITEMS).filter(i => i.rarity !== 'comun');
+      const rng = LifeEngine.seededRandom(Date.now());
+      droppedItems = [
+        rareItems[Math.floor(rng() * rareItems.length)].id,
+        rareItems[Math.floor(rng() * rareItems.length)].id,
+      ];
+    } else {
+      droppedItems = LifeEngine.rollItemDrops(enemyLv, won);
+    }
     droppedItems.forEach(id => {
       addItem(id);
       const item = LifeEngine.ITEMS[id];
@@ -1034,7 +1049,8 @@
 
     if (won) {
       winsCount++;
-      const xpGain = 15 + enemyLv * 10 + Math.floor(Math.random() * 10);
+      const bossBonus = enemyCreature.isBoss ? 3 : 1;
+      const xpGain = (15 + enemyLv * 10 + Math.floor(Math.random() * 10)) * bossBonus;
       addXp(xpGain);
 
       setTimeout(() => {
@@ -1465,6 +1481,135 @@
   const btnBackFromTypeChart = $('btnBackFromTypeChart');
   if (btnBackFromTypeChart) {
     btnBackFromTypeChart.addEventListener('click', () => showExploreScreen());
+  }
+
+  // ─── Daily Boss ───
+  const BOSS_NAMES = ['Titanox', 'Omegaron', 'Supremax', 'Eternix', 'Colossur', 'Primordex', 'Infinor'];
+
+  function getDailyBossSeed() {
+    const d = new Date();
+    return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+  }
+
+  function isDailyBossDefeated() {
+    try {
+      const data = localStorage.getItem('lifemon_daily_boss');
+      if (!data) return false;
+      const parsed = JSON.parse(data);
+      return parsed.seed === getDailyBossSeed();
+    } catch(e) { return false; }
+  }
+
+  function markDailyBossDefeated() {
+    try {
+      localStorage.setItem('lifemon_daily_boss', JSON.stringify({ seed: getDailyBossSeed() }));
+    } catch(e) {}
+  }
+
+  function generateDailyBoss() {
+    const seed = getDailyBossSeed();
+    const rng = LifeEngine.seededRandom(seed);
+    const typeKeys = Object.keys(LifeEngine.TYPES);
+    const type = typeKeys[Math.floor(rng() * typeKeys.length)];
+    const name = BOSS_NAMES[Math.floor(rng() * BOSS_NAMES.length)];
+    const level = Math.max(5, playerLevel + 3 + Math.floor(rng() * 3));
+    const mult = 1.2 + (level * 0.12);
+    const base = 50;
+
+    return {
+      name: name,
+      type: type,
+      secondaryType: typeKeys[Math.floor(rng() * typeKeys.length)],
+      typeInfo: LifeEngine.TYPES[type],
+      secondaryTypeInfo: LifeEngine.TYPES[typeKeys[Math.floor(rng() * typeKeys.length)]],
+      stats: {
+        hp:  Math.floor((base + 100 + rng() * 50) * mult),
+        atk: Math.floor((base + 10 + rng() * 50) * mult),
+        def: Math.floor((base + 10 + rng() * 50) * mult),
+        spd: Math.floor((base + rng() * 50) * mult),
+        int: Math.floor((base + rng() * 50) * mult),
+        cha: Math.floor((base + rng() * 50) * mult),
+      },
+      abilities: (LifeEngine.TYPES[type] ? [] : []).length === 0 ? (() => {
+        // Use same ability pool approach
+        const enemy = LifeEngine.generateEnemy(level);
+        enemy.type = type;
+        enemy.typeInfo = LifeEngine.TYPES[type];
+        return enemy.abilities;
+      })() : [],
+      bio: '',
+      level: level,
+      isBoss: true,
+    };
+  }
+
+  function renderDailyBoss() {
+    const container = $('dailyBossCard');
+    if (!container) return;
+    const defeated = isDailyBossDefeated();
+    const seed = getDailyBossSeed();
+    const rng = LifeEngine.seededRandom(seed);
+    const typeKeys = Object.keys(LifeEngine.TYPES);
+    const type = typeKeys[Math.floor(rng() * typeKeys.length)];
+    const typeInfo = LifeEngine.TYPES[type];
+    const name = BOSS_NAMES[Math.floor(rng() * BOSS_NAMES.length)];
+
+    if (defeated) {
+      container.innerHTML = `<div class="daily-boss defeated">
+        <span class="boss-icon">✅</span>
+        <div class="boss-info">
+          <span class="boss-name">${name} derrotado</span>
+          <span class="boss-desc">Vuelve manana para un nuevo desafio</span>
+        </div>
+      </div>`;
+    } else {
+      container.innerHTML = `<div class="daily-boss" id="btnDailyBoss">
+        <span class="boss-icon">👹</span>
+        <div class="boss-info">
+          <span class="boss-name">Jefe diario: ${name}</span>
+          <span class="boss-desc">${typeInfo.icon} ${typeInfo.name} · Recompensas raras garantizadas</span>
+        </div>
+        <span class="boss-go">⚔️</span>
+      </div>`;
+
+      const btn = $('btnDailyBoss');
+      if (btn) {
+        btn.addEventListener('click', startDailyBoss);
+      }
+    }
+  }
+
+  function startDailyBoss() {
+    if (!playerCreature) return;
+    currentRegion = null;
+    showScreen('screen-battle');
+    battleActive = true;
+
+    enemyCreature = generateDailyBoss();
+    // Fix: generate proper abilities for boss
+    const bossEnemy = LifeEngine.generateEnemy(enemyCreature.level);
+    enemyCreature.abilities = bossEnemy.abilities;
+    enemyCreature.isBoss = true;
+    battlesCount++;
+
+    playerHp = playerCreature.stats.hp;
+    enemyHp = enemyCreature.stats.hp;
+    playerCreature.abilities.forEach(a => a.pp = a.maxPp);
+
+    $('playerName').textContent = creatureNickname || playerCreature.name;
+    $('enemyName').textContent = '👹 ' + enemyCreature.name;
+    $('enemyLevel').textContent = enemyCreature.level;
+    $('logPlayerName').textContent = creatureNickname || playerCreature.name;
+    const plvEl = $('playerLevel');
+    if (plvEl) plvEl.textContent = playerLevel;
+
+    CreatureRenderer.render($('playerCanvas'), playerCreature, { noShadow: true, level: playerLevel });
+    CreatureRenderer.render($('enemyCanvas'), enemyCreature, { noShadow: true, level: enemyCreature.level });
+
+    updateHpBars();
+    renderMoves();
+    setLog(`¡El jefe diario ${enemyCreature.name} aparece! Un enemigo formidable...`);
+    SoundEngine.encounter();
   }
 
   // ─── Load saved game on startup ───
