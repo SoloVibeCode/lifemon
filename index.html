@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>LifeMon — Tu vida, tu criatura</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧬</text></svg>" />
+</head>
+<body>
+  <!-- SCREEN: Intro -->
+  <div class="screen active" id="screen-intro">
+    <div class="intro-container">
+      <div class="intro-logo">
+        <div class="pokeball"></div>
+      </div>
+      <h1 class="intro-title">LifeMon</h1>
+      <p class="intro-subtitle">Tu vida. Tu criatura. Tu batalla.</p>
+      <p class="intro-desc">
+        Pega un resumen de tu vida generado con ChatGPT y descubre
+        que criatura llevas dentro.
+      </p>
+      <textarea id="lifeInput" class="life-input" rows="6"
+        placeholder="Pega aqui tu resumen de vida...&#10;&#10;Ejemplo: Soy ingeniero de 28 anos que vive en Madrid. Me apasiona la tecnologia y los videojuegos. Viaje por 15 paises, hablo 3 idiomas. Empece mi propio negocio a los 25..."></textarea>
+      <button class="btn-primary" id="btnGenerate">
+        <span class="btn-icon">🧬</span>
+        Descubrir mi LifeMon
+      </button>
+      <p class="intro-hint">Cuanto mas detallado sea tu resumen, mas unica sera tu criatura</p>
+    </div>
+  </div>
+
+  <!-- SCREEN: Generating (loading) -->
+  <div class="screen" id="screen-loading">
+    <div class="loading-container">
+      <div class="pokeball spinning"></div>
+      <p class="loading-text">Analizando tu vida...</p>
+      <div class="loading-bar"><div class="loading-fill" id="loadingFill"></div></div>
+      <p class="loading-phase" id="loadingPhase">Extrayendo experiencias...</p>
+    </div>
+  </div>
+
+  <!-- SCREEN: Reveal -->
+  <div class="screen" id="screen-reveal">
+    <div class="reveal-container">
+      <div class="reveal-flash" id="revealFlash"></div>
+      <div class="creature-card" id="creatureCard">
+        <div class="card-header">
+          <span class="creature-name" id="creatureName"></span>
+          <span class="creature-level">Nv. 1</span>
+        </div>
+        <div class="card-type-badge" id="creatureTypeBadge"></div>
+        <div class="creature-canvas-wrap">
+          <canvas id="creatureCanvas" width="160" height="160"></canvas>
+        </div>
+        <div class="card-stats" id="creatureStats"></div>
+        <div class="card-abilities" id="creatureAbilities"></div>
+        <div class="card-bio" id="creatureBio"></div>
+      </div>
+      <div class="reveal-actions">
+        <button class="btn-primary" id="btnBattle">
+          <span class="btn-icon">⚔️</span> Batallar
+        </button>
+        <button class="btn-secondary" id="btnReroll">
+          <span class="btn-icon">🔄</span> Otra criatura
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN: Battle -->
+  <div class="screen" id="screen-battle">
+    <div class="battle-container">
+      <div class="battle-scene">
+        <!-- Enemy -->
+        <div class="battle-side enemy-side">
+          <div class="battle-info">
+            <span class="battle-name" id="enemyName"></span>
+            <span class="battle-lv">Nv. <span id="enemyLevel"></span></span>
+          </div>
+          <div class="hp-bar">
+            <div class="hp-fill" id="enemyHpFill"></div>
+          </div>
+          <div class="hp-text"><span id="enemyHpText"></span></div>
+          <div class="battle-creature-wrap enemy-creature">
+            <canvas id="enemyCanvas" width="120" height="120"></canvas>
+          </div>
+        </div>
+        <!-- Player -->
+        <div class="battle-side player-side">
+          <div class="battle-creature-wrap player-creature">
+            <canvas id="playerCanvas" width="120" height="120"></canvas>
+          </div>
+          <div class="battle-info">
+            <span class="battle-name" id="playerName"></span>
+            <span class="battle-lv">Nv. 1</span>
+          </div>
+          <div class="hp-bar">
+            <div class="hp-fill" id="playerHpFill"></div>
+          </div>
+          <div class="hp-text"><span id="playerHpText"></span></div>
+        </div>
+      </div>
+      <div class="battle-log" id="battleLog">
+        <p>¿Que deberia hacer <span class="log-name" id="logPlayerName"></span>?</p>
+      </div>
+      <div class="battle-moves" id="battleMoves"></div>
+    </div>
+  </div>
+
+  <!-- SCREEN: Victory / Defeat -->
+  <div class="screen" id="screen-result">
+    <div class="result-container">
+      <div class="result-icon" id="resultIcon"></div>
+      <h2 class="result-title" id="resultTitle"></h2>
+      <p class="result-text" id="resultText"></p>
+      <div class="result-actions">
+        <button class="btn-primary" id="btnPlayAgain">
+          <span class="btn-icon">⚔️</span> Otra batalla
+        </button>
+        <button class="btn-secondary" id="btnBackToCard">
+          <span class="btn-icon">🧬</span> Ver mi LifeMon
+        </button>
+        <button class="btn-secondary" id="btnNewLife">
+          <span class="btn-icon">🔄</span> Nueva vida
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="engine.js"></script>
+  <script src="creatures.js"></script>
+  <script src="battle.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
