@@ -434,9 +434,109 @@
       card.addEventListener('click', () => {
         const regionId = card.dataset.region;
         currentRegion = LifeEngine.REGIONS.find(r => r.id === regionId);
-        if (currentRegion) startRegionBattle();
+        if (currentRegion) exploreRegion();
       });
     });
+  }
+
+  // ─── Random encounters ───
+  const EXPLORE_EVENTS = [
+    { type: 'battle', weight: 55 },
+    { type: 'item_find', weight: 20 },
+    { type: 'rest', weight: 10 },
+    { type: 'story', weight: 15 },
+  ];
+
+  const STORY_EVENTS = [
+    { text: 'Encuentras unas ruinas antiguas con simbolos de poder. Tu criatura absorbe la energia.', effect: 'xp', value: 20 },
+    { text: 'Un viajero misterioso te ofrece sabiduria. Tu criatura aprende algo nuevo.', effect: 'xp', value: 30 },
+    { text: 'Descubres un manantial de energia vital. Tu criatura se siente revitalizada.', effect: 'heal_stat', value: 3 },
+    { text: 'Una tormenta de energia recorre la zona. Tu criatura sale fortalecida.', effect: 'xp', value: 25 },
+    { text: 'Encuentras un mapa antiguo que revela secretos de la region.', effect: 'xp', value: 15 },
+    { text: 'Un eco del pasado resuena. Tu criatura conecta con sus raices.', effect: 'xp', value: 35 },
+  ];
+
+  function exploreRegion() {
+    if (!playerCreature || !currentRegion) return;
+
+    const roll = Math.random() * 100;
+    let cumulative = 0;
+    let chosen = 'battle';
+    for (const event of EXPLORE_EVENTS) {
+      cumulative += event.weight;
+      if (roll <= cumulative) { chosen = event.type; break; }
+    }
+
+    switch (chosen) {
+      case 'battle':
+        startRegionBattle();
+        break;
+      case 'item_find':
+        showExploreEvent('item_find');
+        break;
+      case 'rest':
+        showExploreEvent('rest');
+        break;
+      case 'story':
+        showExploreEvent('story');
+        break;
+    }
+  }
+
+  function showExploreEvent(type) {
+    showScreen('screen-event');
+
+    const icon = $('eventIcon');
+    const title = $('eventTitle');
+    const text = $('eventText');
+    const reward = $('eventReward');
+    const btnContinue = $('btnEventContinue');
+
+    if (type === 'item_find') {
+      // Roll a random item
+      const drops = LifeEngine.rollItemDrops(playerLevel, true);
+      const itemId = drops[0] || 'baya_energia';
+      addItem(itemId);
+      const item = LifeEngine.ITEMS[itemId];
+      icon.textContent = item ? item.icon : '📦';
+      title.textContent = '¡Hallazgo!';
+      text.textContent = `Explorando ${currentRegion.name}, encuentras algo brillante entre la vegetacion...`;
+      reward.innerHTML = `<div class="drop-item rarity-${item.rarity}">
+        <span class="drop-icon">${item.icon}</span>
+        <span class="drop-name">${item.name}</span>
+        <span class="drop-rarity">${item.rarity}</span>
+      </div>`;
+      SoundEngine.select();
+      checkAchievements();
+    } else if (type === 'rest') {
+      icon.textContent = '💫';
+      title.textContent = 'Descanso';
+      text.textContent = `Tu criatura descansa en un claro tranquilo de ${currentRegion.name}. Recupera fuerzas y gana experiencia.`;
+      const xpGain = 10 + Math.floor(Math.random() * 15);
+      addXp(xpGain);
+      reward.innerHTML = `<span style="color: var(--accent);">+${xpGain} XP</span>`;
+      SoundEngine.heal();
+    } else if (type === 'story') {
+      const story = STORY_EVENTS[Math.floor(Math.random() * STORY_EVENTS.length)];
+      icon.textContent = '📜';
+      title.textContent = 'Evento';
+      text.textContent = story.text;
+      if (story.effect === 'xp') {
+        addXp(story.value);
+        reward.innerHTML = `<span style="color: var(--accent);">+${story.value} XP</span>`;
+      } else if (story.effect === 'heal_stat') {
+        playerCreature.stats.hp += story.value;
+        playerCreature.stats.def += story.value;
+        saveProgress();
+        reward.innerHTML = `<span style="color: var(--green);">+${story.value} HP, +${story.value} DEF permanente</span>`;
+      }
+      SoundEngine.generate();
+    }
+
+    // Replace event listener cleanly
+    const newBtn = btnContinue.cloneNode(true);
+    btnContinue.parentNode.replaceChild(newBtn, btnContinue);
+    newBtn.addEventListener('click', () => showExploreScreen());
   }
 
   function startRegionBattle() {
