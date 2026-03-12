@@ -11,6 +11,67 @@
   let battleActive = false;
   let playerText = '';
 
+  // ─── XP & Level system ───
+  let playerXp = 0;
+  let playerLevel = 1;
+  let winsCount = 0;
+  let battlesCount = 0;
+
+  const XP_TABLE = [0, 30, 80, 150, 250, 400, 600, 850, 1150, 1500]; // XP needed per level
+
+  function xpForLevel(lv) {
+    return XP_TABLE[Math.min(lv - 1, XP_TABLE.length - 1)] || (lv * 200);
+  }
+
+  function xpToNext() {
+    return xpForLevel(playerLevel + 1) - playerXp;
+  }
+
+  function xpProgress() {
+    const current = xpForLevel(playerLevel);
+    const next = xpForLevel(playerLevel + 1);
+    return Math.min(1, (playerXp - current) / Math.max(1, next - current));
+  }
+
+  function addXp(amount) {
+    playerXp += amount;
+    while (playerXp >= xpForLevel(playerLevel + 1) && playerLevel < 50) {
+      playerLevel++;
+      // Boost stats on level up
+      if (playerCreature) {
+        playerCreature.stats.hp += 5 + Math.floor(Math.random() * 5);
+        playerCreature.stats.atk += 1 + Math.floor(Math.random() * 3);
+        playerCreature.stats.def += 1 + Math.floor(Math.random() * 3);
+        playerCreature.stats.spd += 1 + Math.floor(Math.random() * 2);
+        playerCreature.stats.int += 1 + Math.floor(Math.random() * 2);
+        playerCreature.stats.cha += 1 + Math.floor(Math.random() * 2);
+      }
+    }
+    saveProgress();
+  }
+
+  // ─── Persistence ───
+  function saveProgress() {
+    try {
+      localStorage.setItem('lifemon_save', JSON.stringify({
+        text: playerText,
+        xp: playerXp,
+        level: playerLevel,
+        wins: winsCount,
+        battles: battlesCount,
+        stats: playerCreature?.stats,
+      }));
+    } catch(e) {}
+  }
+
+  function loadProgress() {
+    try {
+      const raw = localStorage.getItem('lifemon_save');
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch(e) { return null; }
+  }
+
   // ─── Screen management ───
   function showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -90,6 +151,10 @@
     // Name
     const nameEl = $('creatureName');
     if (nameEl) nameEl.textContent = playerCreature.name;
+
+    // Level display
+    const lvEl = document.querySelector('.creature-level');
+    if (lvEl) lvEl.textContent = `Nv. ${playerLevel}`;
 
     // Type badge
     const badge = $('creatureTypeBadge');
@@ -178,9 +243,10 @@
     showScreen('screen-battle');
     battleActive = true;
 
-    // Generate enemy
-    const level = 1 + Math.floor(Math.random() * 2);
-    enemyCreature = LifeEngine.generateEnemy(level);
+    // Generate enemy scaled to player level
+    const enemyLevel = Math.max(1, playerLevel + Math.floor(Math.random() * 3) - 1);
+    enemyCreature = LifeEngine.generateEnemy(enemyLevel);
+    battlesCount++;
 
     // Set HP
     playerHp = playerCreature.stats.hp;
@@ -193,8 +259,10 @@
     // Render names
     $('playerName').textContent = playerCreature.name;
     $('enemyName').textContent = enemyCreature.name;
-    $('enemyLevel').textContent = enemyCreature.level || level;
+    $('enemyLevel').textContent = enemyCreature.level || enemyLevel;
     $('logPlayerName').textContent = playerCreature.name;
+    const plvEl = $('playerLevel');
+    if (plvEl) plvEl.textContent = playerLevel;
 
     // Render creatures
     CreatureRenderer.render($('playerCanvas'), playerCreature, { noShadow: true });
@@ -352,15 +420,57 @@
 
   function endBattle(won) {
     battleActive = false;
-    setTimeout(() => {
-      showScreen('screen-result');
+    const prevLevel = playerLevel;
 
-      $('resultIcon').textContent = won ? '🏆' : '💀';
-      $('resultTitle').textContent = won ? '¡Victoria!' : 'Derrotado...';
-      $('resultText').textContent = won
-        ? `${playerCreature.name} ha derrotado a ${enemyCreature.name}! Tu experiencia de vida te da fuerza.`
-        : `${enemyCreature.name} ha derrotado a ${playerCreature.name}. Pero la vida sigue, y habra revancha.`;
-    }, 1000);
+    if (won) {
+      winsCount++;
+      const enemyLv = enemyCreature.level || 1;
+      const xpGain = 15 + enemyLv * 10 + Math.floor(Math.random() * 10);
+      addXp(xpGain);
+
+      setTimeout(() => {
+        showScreen('screen-result');
+        $('resultIcon').textContent = playerLevel > prevLevel ? '⭐' : '🏆';
+        $('resultTitle').textContent = playerLevel > prevLevel ? `¡Nivel ${playerLevel}!` : '¡Victoria!';
+
+        let text = `${playerCreature.name} derroto a ${enemyCreature.name}! +${xpGain} XP`;
+        if (playerLevel > prevLevel) {
+          text += ` — ¡Has subido a nivel ${playerLevel}! Stats mejorados.`;
+        }
+        $('resultText').textContent = text;
+
+        renderResultXpBar();
+      }, 1000);
+    } else {
+      const xpGain = 5 + Math.floor(Math.random() * 5);
+      addXp(xpGain);
+
+      setTimeout(() => {
+        showScreen('screen-result');
+        $('resultIcon').textContent = '💀';
+        $('resultTitle').textContent = 'Derrotado...';
+        $('resultText').textContent = `${enemyCreature.name} derroto a ${playerCreature.name}. +${xpGain} XP de consolacion. La vida sigue.`;
+        renderResultXpBar();
+      }, 1000);
+    }
+  }
+
+  function renderResultXpBar() {
+    const container = $('resultXpBar');
+    if (!container) return;
+    const pct = Math.floor(xpProgress() * 100);
+    container.innerHTML = `
+      <div class="xp-info">
+        <span>Nv. ${playerLevel}</span>
+        <span>${Math.floor(xpToNext())} XP para Nv. ${playerLevel + 1}</span>
+      </div>
+      <div class="xp-bar-bg">
+        <div class="xp-bar-fill" style="width: ${pct}%"></div>
+      </div>
+      <div class="xp-record">
+        <span>Batallas: ${battlesCount}</span>
+        <span>Victorias: ${winsCount}</span>
+      </div>`;
   }
 
   function delay(ms) {
@@ -383,8 +493,39 @@
     btnNewLife.addEventListener('click', () => {
       playerCreature = null;
       playerText = '';
+      playerXp = 0;
+      playerLevel = 1;
+      winsCount = 0;
+      battlesCount = 0;
+      try { localStorage.removeItem('lifemon_save'); } catch(e) {}
       if (lifeInput) lifeInput.value = '';
       showScreen('screen-intro');
     });
+  }
+
+  // ─── Load saved game on startup ───
+  const saved = loadProgress();
+  if (saved && saved.text) {
+    const intro = document.querySelector('.intro-container');
+    if (intro) {
+      const continueBtn = document.createElement('button');
+      continueBtn.className = 'btn-continue';
+      continueBtn.innerHTML = `<span>⚡</span> Continuar (Nv. ${saved.level || 1} · ${saved.wins || 0} victorias)`;
+      continueBtn.addEventListener('click', () => {
+        playerText = saved.text;
+        playerXp = saved.xp || 0;
+        playerLevel = saved.level || 1;
+        winsCount = saved.wins || 0;
+        battlesCount = saved.battles || 0;
+        playerCreature = LifeEngine.generate(saved.text);
+        if (playerCreature && saved.stats) {
+          playerCreature.stats = { ...saved.stats };
+        }
+        if (playerCreature) {
+          revealCreature(saved.text);
+        }
+      });
+      intro.appendChild(continueBtn);
+    }
   }
 })();
