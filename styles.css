@@ -140,6 +140,7 @@ body {
 .btn-icon { font-size: 18px; }
 
 .intro-hint { font-size: 12px; color: var(--blue); margin-top: 12px; }
+.intro-version { font-size: 10px; color: var(--surface); margin-top: 20px; letter-spacing: 0.5px; }
 
 /* ===================== LOADING ===================== */
 .loading-container { text-align: center; }
