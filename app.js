@@ -219,21 +219,243 @@
     if (bioEl) bioEl.textContent = playerCreature.bio;
   }
 
-  // ─── Battle button ───
+  // ─── Navigation buttons ───
   const btnBattle = $('btnBattle');
   if (btnBattle) {
     btnBattle.addEventListener('click', startBattle);
+  }
+
+  const btnExplore = $('btnExplore');
+  if (btnExplore) {
+    btnExplore.addEventListener('click', showExploreScreen);
+  }
+
+  const btnShare = $('btnShare');
+  if (btnShare) {
+    btnShare.addEventListener('click', shareCreature);
   }
 
   const btnReroll = $('btnReroll');
   if (btnReroll) {
     btnReroll.addEventListener('click', () => {
       if (playerText) {
-        // Modify text slightly for different result
         playerText += ' ' + Date.now();
         startGeneration(playerText);
       }
     });
+  }
+
+  // ─── Explore screen ───
+  let currentRegion = null;
+
+  function showExploreScreen() {
+    if (!playerCreature) return;
+    showScreen('screen-explore');
+
+    $('explorePlayerName').textContent = playerCreature.name;
+    $('explorePlayerLevel').textContent = playerLevel;
+    $('exploreWins').textContent = `${winsCount} victorias`;
+    $('exploreBattles').textContent = `${battlesCount} batallas`;
+
+    const grid = $('regionGrid');
+    if (!grid) return;
+
+    grid.innerHTML = LifeEngine.REGIONS.map(r => {
+      const locked = playerLevel < r.minLv;
+      return `
+        <div class="region-card ${locked ? 'locked' : ''}" data-region="${r.id}"
+             style="border-color: ${locked ? 'var(--surface)' : r.color + '44'}; opacity: ${locked ? 0.5 : 1}">
+          <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${r.color}"></div>
+          <div class="region-icon">${r.icon}</div>
+          <div class="region-name">${r.name}</div>
+          <div class="region-desc">${r.desc}</div>
+          <span class="region-level">${locked ? '🔒 Nv. ' + r.minLv + ' necesario' : 'Nv. ' + r.minLv + '-' + r.maxLv}</span>
+        </div>`;
+    }).join('');
+
+    grid.querySelectorAll('.region-card:not(.locked)').forEach(card => {
+      card.addEventListener('click', () => {
+        const regionId = card.dataset.region;
+        currentRegion = LifeEngine.REGIONS.find(r => r.id === regionId);
+        if (currentRegion) startRegionBattle();
+      });
+    });
+  }
+
+  function startRegionBattle() {
+    if (!playerCreature || !currentRegion) return;
+    showScreen('screen-battle');
+    battleActive = true;
+
+    enemyCreature = LifeEngine.generateRegionEnemy(currentRegion, playerLevel);
+    battlesCount++;
+
+    playerHp = playerCreature.stats.hp;
+    enemyHp = enemyCreature.stats.hp;
+
+    playerCreature.abilities.forEach(a => a.pp = a.maxPp);
+    enemyCreature.abilities.forEach(a => a.pp = a.maxPp);
+
+    $('playerName').textContent = playerCreature.name;
+    $('enemyName').textContent = enemyCreature.name;
+    $('enemyLevel').textContent = enemyCreature.level || 1;
+    $('logPlayerName').textContent = playerCreature.name;
+    const plvEl = $('playerLevel');
+    if (plvEl) plvEl.textContent = playerLevel;
+
+    CreatureRenderer.render($('playerCanvas'), playerCreature, { noShadow: true });
+    CreatureRenderer.render($('enemyCanvas'), enemyCreature, { noShadow: true });
+
+    updateHpBars();
+    renderMoves();
+    setLog(`¡Un ${enemyCreature.name} salvaje aparece en ${currentRegion.name}!`);
+  }
+
+  const btnBackFromExplore = $('btnBackFromExplore');
+  if (btnBackFromExplore) {
+    btnBackFromExplore.addEventListener('click', () => showScreen('screen-reveal'));
+  }
+
+  // ─── Share creature ───
+  function shareCreature() {
+    if (!playerCreature) return;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'share-overlay';
+
+    const shareCanvas = document.createElement('canvas');
+    shareCanvas.width = 400;
+    shareCanvas.height = 520;
+    const ctx = shareCanvas.getContext('2d');
+
+    // Background
+    const palette = CreatureRenderer.TYPE_PALETTES[playerCreature.type] || CreatureRenderer.TYPE_PALETTES.tecnico;
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, 400, 520);
+
+    // Top color bar
+    const grad = ctx.createLinearGradient(0, 0, 400, 0);
+    grad.addColorStop(0, palette.body);
+    grad.addColorStop(1, palette.accent);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 400, 6);
+
+    // Title
+    ctx.fillStyle = '#e8e8e8';
+    ctx.font = 'bold 28px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(playerCreature.name, 200, 48);
+
+    // Type badge
+    ctx.font = 'bold 13px -apple-system, sans-serif';
+    ctx.fillStyle = palette.body;
+    ctx.fillText(playerCreature.typeInfo.icon + ' ' + playerCreature.typeInfo.name.toUpperCase() + ' · Nv. ' + playerLevel, 200, 72);
+
+    // Render creature in center
+    const creatureCanvas = document.createElement('canvas');
+    creatureCanvas.width = 160;
+    creatureCanvas.height = 160;
+    CreatureRenderer.render(creatureCanvas, playerCreature);
+    ctx.drawImage(creatureCanvas, 120, 90, 160, 160);
+
+    // Stats
+    const stats = playerCreature.stats;
+    const statNames = ['HP', 'ATK', 'DEF', 'SPD', 'INT', 'CHA'];
+    const statKeys = ['hp', 'atk', 'def', 'spd', 'int', 'cha'];
+    const statColors = ['#50fa7b', '#ff5555', '#6272a4', '#f1fa8c', '#bd93f9', '#ffb86c'];
+    let sy = 280;
+
+    statKeys.forEach((key, i) => {
+      const val = stats[key];
+      const maxVal = key === 'hp' ? 250 : 130;
+      const pct = val / maxVal;
+
+      ctx.fillStyle = '#8892b0';
+      ctx.font = 'bold 12px -apple-system, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(statNames[i], 60, sy + 12);
+
+      ctx.fillStyle = '#0f3460';
+      ctx.fillRect(70, sy, 240, 14);
+      ctx.fillStyle = statColors[i];
+      ctx.fillRect(70, sy, 240 * pct, 14);
+
+      ctx.fillStyle = '#e8e8e8';
+      ctx.textAlign = 'left';
+      ctx.font = 'bold 11px -apple-system, sans-serif';
+      ctx.fillText(val.toString(), 318, sy + 12);
+
+      sy += 22;
+    });
+
+    // Abilities
+    ctx.fillStyle = '#8892b0';
+    ctx.font = '11px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    const abilityText = playerCreature.abilities.map(a => a.name).join(' · ');
+    ctx.fillText(abilityText, 200, sy + 20);
+
+    // Bio
+    ctx.fillStyle = '#6272a4';
+    ctx.font = 'italic 11px -apple-system, sans-serif';
+    const bioLines = wrapText(ctx, playerCreature.bio, 340);
+    bioLines.forEach((line, i) => {
+      ctx.fillText(line, 200, sy + 44 + i * 16);
+    });
+
+    // Branding
+    ctx.fillStyle = '#4a4a6a';
+    ctx.font = '10px -apple-system, sans-serif';
+    ctx.fillText('lifemon-rho.vercel.app', 200, 508);
+
+    overlay.appendChild(shareCanvas);
+
+    const actions = document.createElement('div');
+    actions.className = 'share-actions';
+
+    const btnDownload = document.createElement('button');
+    btnDownload.className = 'btn-primary';
+    btnDownload.innerHTML = '<span class="btn-icon">💾</span> Guardar imagen';
+    btnDownload.style.marginTop = '0';
+    btnDownload.addEventListener('click', () => {
+      const link = document.createElement('a');
+      link.download = `lifemon-${playerCreature.name.toLowerCase()}.png`;
+      link.href = shareCanvas.toDataURL('image/png');
+      link.click();
+    });
+
+    const btnClose = document.createElement('button');
+    btnClose.className = 'btn-secondary';
+    btnClose.textContent = 'Cerrar';
+    btnClose.style.marginTop = '0';
+    btnClose.addEventListener('click', () => overlay.remove());
+
+    actions.appendChild(btnDownload);
+    actions.appendChild(btnClose);
+    overlay.appendChild(actions);
+
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.remove();
+    });
+
+    document.body.appendChild(overlay);
+  }
+
+  function wrapText(ctx, text, maxWidth) {
+    const words = text.split(' ');
+    const lines = [];
+    let line = '';
+    for (const word of words) {
+      const test = line + (line ? ' ' : '') + word;
+      if (ctx.measureText(test).width > maxWidth && line) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = test;
+      }
+    }
+    if (line) lines.push(line);
+    return lines;
   }
 
   // ─── Battle ───
@@ -480,12 +702,29 @@
   // ─── Result buttons ───
   const btnPlayAgain = $('btnPlayAgain');
   if (btnPlayAgain) {
-    btnPlayAgain.addEventListener('click', startBattle);
+    btnPlayAgain.addEventListener('click', () => {
+      if (currentRegion) {
+        startRegionBattle();
+      } else {
+        startBattle();
+      }
+    });
   }
 
   const btnBackToCard = $('btnBackToCard');
   if (btnBackToCard) {
-    btnBackToCard.addEventListener('click', () => showScreen('screen-reveal'));
+    btnBackToCard.addEventListener('click', () => {
+      currentRegion = null;
+      showScreen('screen-reveal');
+    });
+  }
+
+  const btnBackToMap = $('btnBackToMap');
+  if (btnBackToMap) {
+    btnBackToMap.addEventListener('click', () => {
+      currentRegion = null;
+      showExploreScreen();
+    });
   }
 
   const btnNewLife = $('btnNewLife');

@@ -351,5 +351,30 @@ const LifeEngine = (() => {
     };
   }
 
-  return { TYPES, generate, generateEnemy, hash, seededRandom };
+  // ─── Regions for exploration ───
+  const REGIONS = [
+    { id: 'bosque', name: 'Bosque Creativo', icon: '🌲', desc: 'Criaturas artisticas y sonadores', types: ['creativo', 'mistico'], minLv: 1, maxLv: 5, color: '#bd93f9' },
+    { id: 'laboratorio', name: 'Laboratorio', icon: '🔬', desc: 'Engendros tecnicos y logicos', types: ['tecnico', 'academico'], minLv: 1, maxLv: 5, color: '#8be9fd' },
+    { id: 'arena', name: 'Arena de Combate', icon: '🏟️', desc: 'Guerreros y competidores', types: ['atletico', 'emprendedor'], minLv: 3, maxLv: 8, color: '#ff5555' },
+    { id: 'mercado', name: 'Gran Mercado', icon: '🏪', desc: 'Negociantes y conectores', types: ['social', 'emprendedor'], minLv: 2, maxLv: 7, color: '#ffb86c' },
+    { id: 'montana', name: 'Pico Explorador', icon: '⛰️', desc: 'Aventureros y nomadas', types: ['explorador', 'atletico'], minLv: 4, maxLv: 10, color: '#50fa7b' },
+    { id: 'templo', name: 'Templo Interior', icon: '🏛️', desc: 'Sabios y misticos ancestrales', types: ['mistico', 'academico'], minLv: 5, maxLv: 12, color: '#ff79c6' },
+  ];
+
+  function generateRegionEnemy(region, playerLevel) {
+    const rng = seededRandom(Date.now());
+    const type = region.types[Math.floor(rng() * region.types.length)];
+    const minLv = Math.max(region.minLv, playerLevel - 2);
+    const maxLv = Math.min(region.maxLv, playerLevel + 2);
+    const level = Math.max(1, minLv + Math.floor(rng() * (maxLv - minLv + 1)));
+    const enemy = generateEnemy(level);
+    // Override type to match region
+    enemy.type = type;
+    enemy.typeInfo = TYPES[type];
+    const pool = ABILITY_POOLS[type] || ABILITY_POOLS.tecnico;
+    enemy.abilities = pool.map(m => ({ ...m, pp: m.heal ? 3 : 8, maxPp: m.heal ? 3 : 8 }));
+    return enemy;
+  }
+
+  return { TYPES, REGIONS, generate, generateEnemy, generateRegionEnemy, hash, seededRandom };
 })();

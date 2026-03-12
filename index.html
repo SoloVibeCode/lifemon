@@ -58,12 +58,38 @@
         <div class="card-bio" id="creatureBio"></div>
       </div>
       <div class="reveal-actions">
-        <button class="btn-primary" id="btnBattle">
-          <span class="btn-icon">⚔️</span> Batallar
+        <button class="btn-primary" id="btnExplore">
+          <span class="btn-icon">🌍</span> Explorar
         </button>
-        <button class="btn-secondary" id="btnReroll">
-          <span class="btn-icon">🔄</span> Otra criatura
+        <button class="btn-secondary" id="btnBattle">
+          <span class="btn-icon">⚔️</span> Batalla rapida
         </button>
+        <button class="btn-secondary" id="btnShare">
+          <span class="btn-icon">📤</span> Compartir
+        </button>
+        <button class="btn-secondary btn-small" id="btnReroll">
+          <span class="btn-icon">🔄</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREEN: Explore -->
+  <div class="screen" id="screen-explore">
+    <div class="explore-container">
+      <div class="explore-header">
+        <button class="btn-back" id="btnBackFromExplore">← Mi LifeMon</button>
+        <div class="explore-player-info">
+          <span id="explorePlayerName"></span>
+          <span class="explore-lv">Nv. <span id="explorePlayerLevel">1</span></span>
+        </div>
+      </div>
+      <h2 class="explore-title">Mundo LifeMon</h2>
+      <p class="explore-subtitle">Elige una region para explorar</p>
+      <div class="region-grid" id="regionGrid"></div>
+      <div class="explore-stats">
+        <span id="exploreWins">0 victorias</span>
+        <span id="exploreBattles">0 batallas</span>
       </div>
     </div>
   </div>
@@ -118,6 +144,9 @@
       <div class="result-actions">
         <button class="btn-primary" id="btnPlayAgain">
           <span class="btn-icon">⚔️</span> Otra batalla
+        </button>
+        <button class="btn-secondary" id="btnBackToMap">
+          <span class="btn-icon">🌍</span> Volver al mapa
         </button>
         <button class="btn-secondary" id="btnBackToCard">
           <span class="btn-icon">🧬</span> Ver mi LifeMon
