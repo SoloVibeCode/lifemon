@@ -200,14 +200,30 @@ const CreatureRenderer = (() => {
     ],
   ];
 
+  // Evolution stage names
+  const EVO_STAGES = ['Base', 'Evo', 'Mega'];
+
+  function getEvoStage(level) {
+    if (level >= 10) return 2; // Mega
+    if (level >= 5) return 1;  // Evo
+    return 0;                   // Base
+  }
+
+  function getEvoStageName(level) {
+    return EVO_STAGES[getEvoStage(level)];
+  }
+
   function render(canvas, creature, opts = {}) {
     const ctx = canvas.getContext('2d');
     const w = canvas.width;
     const h = canvas.height;
     const palette = TYPE_PALETTES[creature.type] || TYPE_PALETTES.tecnico;
+    const level = opts.level || creature.level || 1;
+    const evoStage = getEvoStage(level);
 
-    // Pick shape based on seed
-    const shapeIdx = (creature.seed || 0) % BODY_SHAPES.length;
+    // Pick shape based on seed + evolution stage (different shape per stage)
+    const baseSeed = creature.seed || 0;
+    const shapeIdx = (baseSeed + evoStage * 4) % BODY_SHAPES.length;
     const shape = BODY_SHAPES[shapeIdx];
 
     // Clear
@@ -219,17 +235,21 @@ const CreatureRenderer = (() => {
     const offsetX = Math.floor((w - gridSize * px) / 2);
     const offsetY = Math.floor((h - gridSize * px) / 2);
 
+    // Evolved palettes get brighter/more saturated
+    const bodyColor = evoStage >= 2 ? shadeColor(palette.body, 20) : evoStage >= 1 ? shadeColor(palette.body, 10) : palette.body;
+    const accentColor = evoStage >= 2 ? shadeColor(palette.accent, 25) : evoStage >= 1 ? shadeColor(palette.accent, 12) : palette.accent;
+
     // Color map
     const colors = {
       0: null,
-      1: palette.body,
-      2: palette.accent,
+      1: bodyColor,
+      2: accentColor,
       3: palette.eye,
       4: '#000000',
     };
 
     // Draw with slight variation based on seed
-    const rng = LifeEngine.seededRandom(creature.seed || 0);
+    const rng = LifeEngine.seededRandom(baseSeed);
 
     for (let y = 0; y < gridSize; y++) {
       for (let x = 0; x < gridSize; x++) {
@@ -240,15 +260,43 @@ const CreatureRenderer = (() => {
 
         // Add slight shade variation to body pixels
         if (val === 1 && rng() > 0.7) {
-          color = shadeColor(palette.body, -15);
+          color = shadeColor(bodyColor, -15);
         }
         if (val === 2 && rng() > 0.5) {
-          color = shadeColor(palette.accent, 10);
+          color = shadeColor(accentColor, 10);
         }
 
         ctx.fillStyle = color;
         ctx.fillRect(offsetX + x * px, offsetY + y * px, px, px);
       }
+    }
+
+    // Evo glow effect (stage 1+)
+    if (evoStage >= 1 && !opts.noGlow) {
+      ctx.save();
+      ctx.globalAlpha = evoStage >= 2 ? 0.25 : 0.12;
+      ctx.shadowColor = palette.body;
+      ctx.shadowBlur = evoStage >= 2 ? 20 : 10;
+      ctx.fillStyle = palette.body;
+      ctx.beginPath();
+      ctx.ellipse(w / 2, h / 2, gridSize * px * 0.35, gridSize * px * 0.35, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Mega crown/mark (stage 2)
+    if (evoStage >= 2) {
+      ctx.fillStyle = palette.accent;
+      const crownY = offsetY - px;
+      const cx = w / 2;
+      // Small diamond mark above head
+      ctx.beginPath();
+      ctx.moveTo(cx, crownY - px * 1.5);
+      ctx.lineTo(cx + px, crownY);
+      ctx.lineTo(cx, crownY + px * 0.5);
+      ctx.lineTo(cx - px, crownY);
+      ctx.closePath();
+      ctx.fill();
     }
 
     // Add a subtle shadow
@@ -269,5 +317,5 @@ const CreatureRenderer = (() => {
     return `#${(0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1)}`;
   }
 
-  return { render, TYPE_PALETTES };
+  return { render, TYPE_PALETTES, getEvoStage, getEvoStageName };
 })();

@@ -33,18 +33,25 @@
     return Math.min(1, (playerXp - current) / Math.max(1, next - current));
   }
 
+  let evolvedThisBattle = false;
+
   function addXp(amount) {
     playerXp += amount;
+    evolvedThisBattle = false;
     while (playerXp >= xpForLevel(playerLevel + 1) && playerLevel < 50) {
+      const prevStage = CreatureRenderer.getEvoStage(playerLevel);
       playerLevel++;
-      // Boost stats on level up
+      const newStage = CreatureRenderer.getEvoStage(playerLevel);
+      if (newStage > prevStage) evolvedThisBattle = true;
+      // Boost stats on level up (bigger boost on evolution)
       if (playerCreature) {
-        playerCreature.stats.hp += 5 + Math.floor(Math.random() * 5);
-        playerCreature.stats.atk += 1 + Math.floor(Math.random() * 3);
-        playerCreature.stats.def += 1 + Math.floor(Math.random() * 3);
-        playerCreature.stats.spd += 1 + Math.floor(Math.random() * 2);
-        playerCreature.stats.int += 1 + Math.floor(Math.random() * 2);
-        playerCreature.stats.cha += 1 + Math.floor(Math.random() * 2);
+        const evoBonus = newStage > prevStage ? 2 : 0;
+        playerCreature.stats.hp += 5 + Math.floor(Math.random() * 5) + evoBonus * 5;
+        playerCreature.stats.atk += 1 + Math.floor(Math.random() * 3) + evoBonus * 2;
+        playerCreature.stats.def += 1 + Math.floor(Math.random() * 3) + evoBonus * 2;
+        playerCreature.stats.spd += 1 + Math.floor(Math.random() * 2) + evoBonus;
+        playerCreature.stats.int += 1 + Math.floor(Math.random() * 2) + evoBonus;
+        playerCreature.stats.cha += 1 + Math.floor(Math.random() * 2) + evoBonus;
       }
     }
     saveProgress();
@@ -152,9 +159,12 @@
     const nameEl = $('creatureName');
     if (nameEl) nameEl.textContent = playerCreature.name;
 
-    // Level display
+    // Level display with evolution stage
     const lvEl = document.querySelector('.creature-level');
-    if (lvEl) lvEl.textContent = `Nv. ${playerLevel}`;
+    if (lvEl) {
+      const evoName = CreatureRenderer.getEvoStageName(playerLevel);
+      lvEl.textContent = playerLevel >= 5 ? `${evoName} · Nv. ${playerLevel}` : `Nv. ${playerLevel}`;
+    }
 
     // Type badge
     const badge = $('creatureTypeBadge');
@@ -165,10 +175,10 @@
       badge.style.border = `1px solid ${playerCreature.typeInfo.color}44`;
     }
 
-    // Render creature on canvas
+    // Render creature on canvas (pass level for evolution)
     const canvas = $('creatureCanvas');
     if (canvas) {
-      CreatureRenderer.render(canvas, playerCreature);
+      CreatureRenderer.render(canvas, playerCreature, { level: playerLevel });
     }
 
     // Stats
@@ -303,8 +313,8 @@
     const plvEl = $('playerLevel');
     if (plvEl) plvEl.textContent = playerLevel;
 
-    CreatureRenderer.render($('playerCanvas'), playerCreature, { noShadow: true });
-    CreatureRenderer.render($('enemyCanvas'), enemyCreature, { noShadow: true });
+    CreatureRenderer.render($('playerCanvas'), playerCreature, { noShadow: true, level: playerLevel });
+    CreatureRenderer.render($('enemyCanvas'), enemyCreature, { noShadow: true, level: enemyCreature.level });
 
     updateHpBars();
     renderMoves();
@@ -346,16 +356,17 @@
     ctx.textAlign = 'center';
     ctx.fillText(playerCreature.name, 200, 48);
 
-    // Type badge
+    // Type badge with evolution
+    const evoTag = playerLevel >= 5 ? ' ' + CreatureRenderer.getEvoStageName(playerLevel) : '';
     ctx.font = 'bold 13px -apple-system, sans-serif';
     ctx.fillStyle = palette.body;
-    ctx.fillText(playerCreature.typeInfo.icon + ' ' + playerCreature.typeInfo.name.toUpperCase() + ' · Nv. ' + playerLevel, 200, 72);
+    ctx.fillText(playerCreature.typeInfo.icon + ' ' + playerCreature.typeInfo.name.toUpperCase() + evoTag + ' · Nv. ' + playerLevel, 200, 72);
 
-    // Render creature in center
+    // Render creature in center (with evolution)
     const creatureCanvas = document.createElement('canvas');
     creatureCanvas.width = 160;
     creatureCanvas.height = 160;
-    CreatureRenderer.render(creatureCanvas, playerCreature);
+    CreatureRenderer.render(creatureCanvas, playerCreature, { level: playerLevel });
     ctx.drawImage(creatureCanvas, 120, 90, 160, 160);
 
     // Stats
@@ -486,9 +497,9 @@
     const plvEl = $('playerLevel');
     if (plvEl) plvEl.textContent = playerLevel;
 
-    // Render creatures
-    CreatureRenderer.render($('playerCanvas'), playerCreature, { noShadow: true });
-    CreatureRenderer.render($('enemyCanvas'), enemyCreature, { noShadow: true });
+    // Render creatures with evolution
+    CreatureRenderer.render($('playerCanvas'), playerCreature, { noShadow: true, level: playerLevel });
+    CreatureRenderer.render($('enemyCanvas'), enemyCreature, { noShadow: true, level: enemyCreature.level });
 
     // Update HP bars
     updateHpBars();
@@ -652,11 +663,23 @@
 
       setTimeout(() => {
         showScreen('screen-result');
-        $('resultIcon').textContent = playerLevel > prevLevel ? '⭐' : '🏆';
-        $('resultTitle').textContent = playerLevel > prevLevel ? `¡Nivel ${playerLevel}!` : '¡Victoria!';
+        const evoName = CreatureRenderer.getEvoStageName(playerLevel);
+
+        if (evolvedThisBattle) {
+          $('resultIcon').textContent = '🌟';
+          $('resultTitle').textContent = `¡${playerCreature.name} evoluciono!`;
+        } else if (playerLevel > prevLevel) {
+          $('resultIcon').textContent = '⭐';
+          $('resultTitle').textContent = `¡Nivel ${playerLevel}!`;
+        } else {
+          $('resultIcon').textContent = '🏆';
+          $('resultTitle').textContent = '¡Victoria!';
+        }
 
         let text = `${playerCreature.name} derroto a ${enemyCreature.name}! +${xpGain} XP`;
-        if (playerLevel > prevLevel) {
+        if (evolvedThisBattle) {
+          text += ` — ¡Tu criatura evoluciono a forma ${evoName}! Nueva apariencia y stats potenciados.`;
+        } else if (playerLevel > prevLevel) {
           text += ` — ¡Has subido a nivel ${playerLevel}! Stats mejorados.`;
         }
         $('resultText').textContent = text;
