@@ -86,12 +86,22 @@
     if (screen) screen.classList.add('active');
   }
 
+  // ─── Sound toggle ───
+  const soundToggle = $('soundToggle');
+  if (soundToggle) {
+    soundToggle.addEventListener('click', () => {
+      const on = SoundEngine.toggle();
+      soundToggle.textContent = on ? '🔊' : '🔇';
+    });
+  }
+
   // ─── Intro screen ───
   const btnGenerate = $('btnGenerate');
   const lifeInput = $('lifeInput');
 
   if (btnGenerate) {
     btnGenerate.addEventListener('click', () => {
+      SoundEngine.resume();
       const text = lifeInput.value.trim();
       if (text.length < 20) {
         lifeInput.style.borderColor = 'var(--red)';
@@ -105,6 +115,7 @@
 
   // ─── Loading animation ───
   function startGeneration(text) {
+    SoundEngine.generate();
     showScreen('screen-loading');
     const fill = $('loadingFill');
     const phase = $('loadingPhase');
@@ -319,6 +330,7 @@
     updateHpBars();
     renderMoves();
     setLog(`¡Un ${enemyCreature.name} salvaje aparece en ${currentRegion.name}!`);
+    SoundEngine.encounter();
   }
 
   const btnBackFromExplore = $('btnBackFromExplore');
@@ -509,6 +521,7 @@
 
     // Battle log
     setLog(`¡Un ${enemyCreature.name} salvaje aparece!`);
+    SoundEngine.encounter();
   }
 
   function updateHpBars() {
@@ -551,6 +564,7 @@
     movesEl.querySelectorAll('.move-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         if (!battleActive) return;
+        SoundEngine.select();
         const idx = parseInt(btn.dataset.idx);
         executeTurn(idx);
       });
@@ -582,16 +596,22 @@
     move.pp--;
 
     if (move.heal) {
-      const heal = BattleSystem.calcHeal(move, playerCreature);
-      playerHp = Math.min(playerCreature.stats.hp, playerHp + heal);
-      setLog(`${playerCreature.name} usa ${move.name}! Recupera ${heal} HP.`);
+      const healAmt = BattleSystem.calcHeal(move, playerCreature);
+      playerHp = Math.min(playerCreature.stats.hp, playerHp + healAmt);
+      setLog(`${playerCreature.name} usa ${move.name}! Recupera ${healAmt} HP.`);
+      SoundEngine.heal();
     } else {
       const dmg = BattleSystem.calcDamage(playerCreature, move, enemyCreature);
       enemyHp -= dmg;
       setLog(`${playerCreature.name} usa ${move.name}! Hace ${dmg} de dano.`);
+      SoundEngine.hit();
 
       const eff = BattleSystem.effectivenessText(move.type, enemyCreature.type);
-      if (eff) appendLog(eff);
+      if (eff) {
+        appendLog(eff);
+        if (eff.includes('super')) SoundEngine.superEffective();
+        else SoundEngine.notEffective();
+      }
 
       // Shake enemy
       const enemyWrap = document.querySelector('.enemy-creature');
@@ -617,13 +637,15 @@
     } else {
       enemyMove.pp--;
       if (enemyMove.heal) {
-        const heal = BattleSystem.calcHeal(enemyMove, enemyCreature);
-        enemyHp = Math.min(enemyCreature.stats.hp, enemyHp + heal);
-        appendLog(`${enemyCreature.name} usa ${enemyMove.name}! Recupera ${heal} HP.`);
+        const healAmt = BattleSystem.calcHeal(enemyMove, enemyCreature);
+        enemyHp = Math.min(enemyCreature.stats.hp, enemyHp + healAmt);
+        appendLog(`${enemyCreature.name} usa ${enemyMove.name}! Recupera ${healAmt} HP.`);
+        SoundEngine.heal();
       } else {
         const dmg = BattleSystem.calcDamage(enemyCreature, enemyMove, playerCreature);
         playerHp -= dmg;
         appendLog(`${enemyCreature.name} usa ${enemyMove.name}! Hace ${dmg} de dano.`);
+        SoundEngine.hit();
 
         const eff = BattleSystem.effectivenessText(enemyMove.type, playerCreature.type);
         if (eff) appendLog(eff);
@@ -668,12 +690,15 @@
         if (evolvedThisBattle) {
           $('resultIcon').textContent = '🌟';
           $('resultTitle').textContent = `¡${playerCreature.name} evoluciono!`;
+          SoundEngine.evolution();
         } else if (playerLevel > prevLevel) {
           $('resultIcon').textContent = '⭐';
           $('resultTitle').textContent = `¡Nivel ${playerLevel}!`;
+          SoundEngine.levelUp();
         } else {
           $('resultIcon').textContent = '🏆';
           $('resultTitle').textContent = '¡Victoria!';
+          SoundEngine.victory();
         }
 
         let text = `${playerCreature.name} derroto a ${enemyCreature.name}! +${xpGain} XP`;
@@ -694,6 +719,7 @@
         showScreen('screen-result');
         $('resultIcon').textContent = '💀';
         $('resultTitle').textContent = 'Derrotado...';
+        SoundEngine.defeat();
         $('resultText').textContent = `${enemyCreature.name} derroto a ${playerCreature.name}. +${xpGain} XP de consolacion. La vida sigue.`;
         renderResultXpBar();
       }, 1000);
