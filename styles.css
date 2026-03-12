@@ -621,6 +621,87 @@ body {
 }
 .sound-toggle:hover { background: var(--bg2); border-color: var(--primary); }
 
+/* Explore buttons row */
+.explore-buttons {
+  display: flex; gap: 8px; margin-top: 16px;
+}
+.explore-buttons .btn-bestiary { flex: 1; }
+
+/* Inventory screen */
+.inventory-container {
+  max-width: 480px; margin: 0 auto; padding: 20px;
+}
+.inventory-header {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 8px;
+}
+.inventory-title { font-size: 20px; font-weight: 700; flex: 1; }
+.inventory-count { color: var(--muted); font-size: 14px; }
+.inventory-subtitle { color: var(--muted); font-size: 14px; margin-bottom: 16px; }
+.inventory-grid { display: flex; flex-direction: column; gap: 8px; }
+.inventory-empty { color: var(--muted); text-align: center; padding: 40px 20px; font-size: 14px; }
+
+.inventory-item {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--surface2); border-radius: var(--radius-sm);
+  padding: 12px; border-left: 3px solid var(--muted);
+  transition: all 0.15s;
+}
+.inventory-item.rarity-comun { border-left-color: var(--muted); }
+.inventory-item.rarity-raro { border-left-color: var(--cyan); }
+.inventory-item.rarity-epico { border-left-color: var(--purple); }
+.inventory-item.rarity-legendario { border-left-color: var(--accent); }
+
+.inv-icon { font-size: 24px; min-width: 32px; text-align: center; }
+.inv-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.inv-name { font-size: 14px; font-weight: 600; }
+.inv-desc { font-size: 11px; color: var(--muted); }
+.inv-qty { font-size: 14px; color: var(--muted); font-weight: 600; min-width: 30px; text-align: center; }
+.inv-use {
+  padding: 4px 10px; border-radius: 6px; font-size: 11px;
+  background: var(--primary); color: #fff; border: none;
+  cursor: pointer; font-weight: 600;
+}
+.inv-use:hover { filter: brightness(1.2); }
+
+/* Item drops in result screen */
+.result-drops { margin: 12px 0; }
+.drops-title {
+  font-size: 13px; color: var(--accent); font-weight: 600;
+  margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;
+}
+.drop-item {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--surface2); border-radius: 8px; padding: 6px 12px;
+  margin: 4px; font-size: 13px; border: 1px solid transparent;
+  animation: dropIn 0.4s ease-out;
+}
+.drop-item.rarity-comun { border-color: var(--muted); }
+.drop-item.rarity-raro { border-color: var(--cyan); }
+.drop-item.rarity-epico { border-color: var(--purple); box-shadow: 0 0 8px rgba(189, 147, 249, 0.3); }
+.drop-item.rarity-legendario { border-color: var(--accent); box-shadow: 0 0 12px rgba(245, 197, 24, 0.4); }
+
+.drop-icon { font-size: 18px; }
+.drop-name { font-weight: 600; }
+.drop-rarity { font-size: 10px; color: var(--muted); text-transform: uppercase; }
+
+@keyframes dropIn {
+  from { opacity: 0; transform: translateY(-10px) scale(0.8); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Battle bag button */
+.bag-btn { background: rgba(241, 250, 140, 0.1) !important; }
+.item-btn { background: rgba(241, 250, 140, 0.08) !important; }
+
+/* Inventory toast */
+.inventory-toast {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: var(--surface); border: 1px solid var(--accent); color: var(--text);
+  padding: 10px 20px; border-radius: 10px; font-size: 14px; font-weight: 600;
+  opacity: 0; transition: all 0.3s; z-index: 200; white-space: nowrap;
+}
+.inventory-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }

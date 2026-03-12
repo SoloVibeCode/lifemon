@@ -57,6 +57,102 @@
     saveProgress();
   }
 
+  // ─── Inventory ───
+  let inventory = []; // array of item IDs
+  let activeBuff = null; // { type: 'power'|'shield', used: false }
+
+  function loadInventory() {
+    try {
+      const raw = localStorage.getItem('lifemon_inventory');
+      if (raw) inventory = JSON.parse(raw);
+    } catch(e) {}
+  }
+
+  function saveInventory() {
+    try {
+      localStorage.setItem('lifemon_inventory', JSON.stringify(inventory));
+    } catch(e) {}
+  }
+
+  function addItem(itemId) {
+    inventory.push(itemId);
+    saveInventory();
+  }
+
+  function removeItem(itemId) {
+    const idx = inventory.indexOf(itemId);
+    if (idx !== -1) {
+      inventory.splice(idx, 1);
+      saveInventory();
+    }
+  }
+
+  function useItem(itemId) {
+    const item = LifeEngine.ITEMS[itemId];
+    if (!item) return false;
+
+    if (item.category === 'consumible') {
+      if (item.heal && battleActive && playerCreature) {
+        playerHp = Math.min(playerCreature.stats.hp, playerHp + item.heal);
+        updateHpBars();
+        removeItem(itemId);
+        SoundEngine.heal();
+        return `${item.icon} ${item.name}: +${item.heal} HP!`;
+      }
+      if (item.healFull && battleActive && playerCreature) {
+        playerHp = playerCreature.stats.hp;
+        playerCreature.abilities.forEach(a => a.pp = a.maxPp);
+        updateHpBars();
+        renderMoves();
+        removeItem(itemId);
+        SoundEngine.heal();
+        return `${item.icon} ${item.name}: HP y PP restaurados!`;
+      }
+      if (item.xp) {
+        addXp(item.xp);
+        removeItem(itemId);
+        SoundEngine.levelUp();
+        return `${item.icon} ${item.name}: +${item.xp} XP!`;
+      }
+      return false;
+    }
+
+    if (item.category === 'cristal') {
+      if (!playerCreature) return false;
+      if (item.statAll) {
+        ['hp', 'atk', 'def', 'spd', 'int', 'cha'].forEach(s => {
+          playerCreature.stats[s] += item.statAll;
+        });
+        if (battleActive) playerHp = Math.min(playerCreature.stats.hp, playerHp + item.statAll);
+      } else if (item.stat) {
+        playerCreature.stats[item.stat] += item.boost;
+        if (item.stat === 'hp' && battleActive) playerHp += item.boost;
+      }
+      removeItem(itemId);
+      saveProgress();
+      SoundEngine.levelUp();
+      return `${item.icon} ${item.name}: stats mejorados!`;
+    }
+
+    if (item.category === 'batalla') {
+      if (!battleActive) return false;
+      activeBuff = { type: item.buff, used: false };
+      removeItem(itemId);
+      SoundEngine.select();
+      return `${item.icon} ${item.name}: buff activado!`;
+    }
+
+    return false;
+  }
+
+  function getInventoryCounts() {
+    const counts = {};
+    for (const id of inventory) {
+      counts[id] = (counts[id] || 0) + 1;
+    }
+    return counts;
+  }
+
   // ─── Bestiary ───
   let bestiary = {}; // keyed by creature name
 
@@ -310,6 +406,8 @@
     if (!playerCreature) return;
     showScreen('screen-explore');
     updateBestiaryBadge();
+    const invBadge = $('inventoryBadge');
+    if (invBadge) invBadge.textContent = inventory.length;
 
     $('explorePlayerName').textContent = playerCreature.name;
     $('explorePlayerLevel').textContent = playerLevel;
@@ -642,6 +740,11 @@
     const movesEl = $('battleMoves');
     if (!movesEl) return;
 
+    const hasBattleItems = inventory.some(id => {
+      const item = LifeEngine.ITEMS[id];
+      return item && (item.category === 'consumible' && (item.heal || item.healFull) || item.category === 'batalla');
+    });
+
     movesEl.innerHTML = playerCreature.abilities.map((move, i) => {
       const typeInfo = LifeEngine.TYPES[move.type] || {};
       const disabled = move.pp <= 0 ? 'disabled' : '';
@@ -652,10 +755,14 @@
           <span class="move-type">${typeInfo.name || move.type} · PWR ${move.power || move.heal || 0}</span>
           <span class="move-pp">PP ${move.pp}/${move.maxPp}</span>
         </button>`;
-    }).join('');
+    }).join('') + (hasBattleItems ? `<button class="move-btn bag-btn" id="btnBagInBattle"
+      style="border-bottom: 3px solid #f1fa8c">
+      🎒 Mochila
+      <span class="move-type">Usar un objeto</span>
+    </button>` : '');
 
     // Add event listeners
-    movesEl.querySelectorAll('.move-btn').forEach(btn => {
+    movesEl.querySelectorAll('.move-btn[data-idx]').forEach(btn => {
       btn.addEventListener('click', () => {
         if (!battleActive) return;
         SoundEngine.select();
@@ -663,6 +770,9 @@
         executeTurn(idx);
       });
     });
+
+    const bagBtn = movesEl.querySelector('#btnBagInBattle');
+    if (bagBtn) bagBtn.addEventListener('click', () => { if (battleActive) showBattleItemBag(); });
   }
 
   function setLog(text) {
@@ -695,7 +805,13 @@
       setLog(`${playerCreature.name} usa ${move.name}! Recupera ${healAmt} HP.`);
       SoundEngine.heal();
     } else {
-      const dmg = BattleSystem.calcDamage(playerCreature, move, enemyCreature);
+      let dmg = BattleSystem.calcDamage(playerCreature, move, enemyCreature);
+      // Apply power buff
+      if (activeBuff && activeBuff.type === 'power' && !activeBuff.used) {
+        dmg = Math.floor(dmg * 1.5);
+        activeBuff.used = true;
+        activeBuff = null;
+      }
       enemyHp -= dmg;
       setLog(`${playerCreature.name} usa ${move.name}! Hace ${dmg} de dano.`);
       SoundEngine.hit();
@@ -736,7 +852,13 @@
         appendLog(`${enemyCreature.name} usa ${enemyMove.name}! Recupera ${healAmt} HP.`);
         SoundEngine.heal();
       } else {
-        const dmg = BattleSystem.calcDamage(enemyCreature, enemyMove, playerCreature);
+        let dmg = BattleSystem.calcDamage(enemyCreature, enemyMove, playerCreature);
+        // Apply shield buff
+        if (activeBuff && activeBuff.type === 'shield' && !activeBuff.used) {
+          dmg = Math.floor(dmg * 0.5);
+          activeBuff.used = true;
+          activeBuff = null;
+        }
         playerHp -= dmg;
         appendLog(`${enemyCreature.name} usa ${enemyMove.name}! Hace ${dmg} de dano.`);
         SoundEngine.hit();
@@ -769,14 +891,19 @@
 
   function endBattle(won) {
     battleActive = false;
+    activeBuff = null;
     const prevLevel = playerLevel;
 
     // Register enemy in bestiary
     if (enemyCreature) registerCreature(enemyCreature, won);
 
+    // Roll item drops
+    const enemyLv = enemyCreature.level || 1;
+    const droppedItems = LifeEngine.rollItemDrops(enemyLv, won);
+    droppedItems.forEach(id => addItem(id));
+
     if (won) {
       winsCount++;
-      const enemyLv = enemyCreature.level || 1;
       const xpGain = 15 + enemyLv * 10 + Math.floor(Math.random() * 10);
       addXp(xpGain);
 
@@ -807,6 +934,7 @@
         $('resultText').textContent = text;
 
         renderResultXpBar();
+        renderResultDrops(droppedItems);
       }, 1000);
     } else {
       const xpGain = 5 + Math.floor(Math.random() * 5);
@@ -819,8 +947,28 @@
         SoundEngine.defeat();
         $('resultText').textContent = `${enemyCreature.name} derroto a ${playerCreature.name}. +${xpGain} XP de consolacion. La vida sigue.`;
         renderResultXpBar();
+        renderResultDrops(droppedItems);
       }, 1000);
     }
+  }
+
+  function renderResultDrops(droppedItems) {
+    const container = $('resultDrops');
+    if (!container) return;
+    if (!droppedItems || droppedItems.length === 0) {
+      container.innerHTML = '';
+      return;
+    }
+    const html = droppedItems.map(id => {
+      const item = LifeEngine.ITEMS[id];
+      if (!item) return '';
+      return `<div class="drop-item rarity-${item.rarity}">
+        <span class="drop-icon">${item.icon}</span>
+        <span class="drop-name">${item.name}</span>
+        <span class="drop-rarity">${item.rarity}</span>
+      </div>`;
+    }).join('');
+    container.innerHTML = `<div class="drops-title">Objetos encontrados</div>${html}`;
   }
 
   function renderResultXpBar() {
@@ -882,15 +1030,182 @@
       playerLevel = 1;
       winsCount = 0;
       battlesCount = 0;
-      try { localStorage.removeItem('lifemon_save'); localStorage.removeItem('lifemon_bestiary'); } catch(e) {}
+      try { localStorage.removeItem('lifemon_save'); localStorage.removeItem('lifemon_bestiary'); localStorage.removeItem('lifemon_inventory'); } catch(e) {}
       bestiary = {};
+      inventory = [];
       if (lifeInput) lifeInput.value = '';
       showScreen('screen-intro');
     });
   }
 
+  // ─── Inventory screen ───
+  function showInventoryScreen() {
+    showScreen('screen-inventory');
+    const grid = $('inventoryGrid');
+    if (!grid) return;
+
+    const counts = getInventoryCounts();
+    const uniqueItems = Object.keys(counts);
+
+    if (uniqueItems.length === 0) {
+      grid.innerHTML = '<p class="inventory-empty">Tu mochila esta vacia. Gana batallas para encontrar objetos!</p>';
+      return;
+    }
+
+    grid.innerHTML = uniqueItems.map(id => {
+      const item = LifeEngine.ITEMS[id];
+      if (!item) return '';
+      const qty = counts[id];
+      const canUse = item.category === 'cristal' || item.category === 'consumible' && item.xp;
+      return `<div class="inventory-item rarity-${item.rarity}" data-item="${id}">
+        <div class="inv-icon">${item.icon}</div>
+        <div class="inv-info">
+          <span class="inv-name">${item.name}</span>
+          <span class="inv-desc">${item.desc}</span>
+        </div>
+        <span class="inv-qty">x${qty}</span>
+        ${canUse ? `<button class="inv-use" data-item="${id}">Usar</button>` : ''}
+      </div>`;
+    }).join('');
+
+    // Wire use buttons
+    grid.querySelectorAll('.inv-use').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const itemId = btn.dataset.item;
+        const result = useItem(itemId);
+        if (result) {
+          showInventoryToast(result);
+          showInventoryScreen(); // refresh
+        }
+      });
+    });
+
+    const badge = $('inventoryBadge');
+    if (badge) badge.textContent = inventory.length;
+  }
+
+  function showInventoryToast(text) {
+    const toast = document.createElement('div');
+    toast.className = 'inventory-toast';
+    toast.textContent = text;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.classList.add('show'), 10);
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => toast.remove(), 300);
+    }, 2000);
+  }
+
+  // Battle item bag
+  function showBattleItemBag() {
+    const counts = getInventoryCounts();
+    const usableInBattle = Object.keys(counts).filter(id => {
+      const item = LifeEngine.ITEMS[id];
+      return item && (item.category === 'consumible' && (item.heal || item.healFull) || item.category === 'batalla');
+    });
+
+    if (usableInBattle.length === 0) {
+      setLog('No tienes objetos usables en batalla.');
+      return;
+    }
+
+    const movesEl = $('battleMoves');
+    if (!movesEl) return;
+
+    movesEl.innerHTML = usableInBattle.map(id => {
+      const item = LifeEngine.ITEMS[id];
+      return `<button class="move-btn item-btn" data-item="${id}"
+              style="border-bottom: 3px solid #f1fa8c">
+        ${item.icon} ${item.name}
+        <span class="move-type">${item.desc}</span>
+        <span class="move-pp">x${counts[id]}</span>
+      </button>`;
+    }).join('') + `<button class="move-btn" id="btnBackToMoves"
+      style="border-bottom: 3px solid #666">
+      ← Ataques
+      <span class="move-type">Volver a movimientos</span>
+    </button>`;
+
+    movesEl.querySelectorAll('.item-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!battleActive) return;
+        const itemId = btn.dataset.item;
+        const result = useItem(itemId);
+        if (result) {
+          setLog(result);
+          // Item use costs a turn — enemy attacks
+          battleActive = false;
+          setTimeout(async () => {
+            await enemyTurn();
+            if (playerHp <= 0) { endBattle(false); return; }
+            battleActive = true;
+            renderMoves();
+          }, 800);
+        }
+      });
+    });
+
+    const backBtn = movesEl.querySelector('#btnBackToMoves');
+    if (backBtn) backBtn.addEventListener('click', () => renderMoves());
+  }
+
+  async function enemyTurn() {
+    const enemyMove = BattleSystem.pickEnemyMove(enemyCreature, playerCreature);
+    if (!enemyMove) {
+      appendLog(`${enemyCreature.name} no tiene movimientos disponibles!`);
+      return;
+    }
+    enemyMove.pp--;
+    if (enemyMove.heal) {
+      const healAmt = BattleSystem.calcHeal(enemyMove, enemyCreature);
+      enemyHp = Math.min(enemyCreature.stats.hp, enemyHp + healAmt);
+      appendLog(`${enemyCreature.name} usa ${enemyMove.name}! Recupera ${healAmt} HP.`);
+      SoundEngine.heal();
+    } else {
+      let dmg = BattleSystem.calcDamage(enemyCreature, enemyMove, playerCreature);
+      if (activeBuff && activeBuff.type === 'shield' && !activeBuff.used) {
+        dmg = Math.floor(dmg * 0.5);
+        activeBuff.used = true;
+        activeBuff = null;
+      }
+      playerHp -= dmg;
+      appendLog(`${enemyCreature.name} usa ${enemyMove.name}! Hace ${dmg} de dano.`);
+      SoundEngine.hit();
+      const eff = BattleSystem.effectivenessText(enemyMove.type, playerCreature.type);
+      if (eff) appendLog(eff);
+      const playerWrap = document.querySelector('.player-creature');
+      if (playerWrap) {
+        playerWrap.classList.add('shake');
+        setTimeout(() => playerWrap.classList.remove('shake'), 300);
+      }
+    }
+    updateHpBars();
+  }
+
+  // Inventory button on explore screen
+  const btnInventory = $('btnInventory');
+  if (btnInventory) {
+    btnInventory.addEventListener('click', showInventoryScreen);
+  }
+
+  // Back from inventory
+  const btnBackFromInventory = $('btnBackFromInventory');
+  if (btnBackFromInventory) {
+    btnBackFromInventory.addEventListener('click', () => showExploreScreen());
+  }
+
+  // Battle item bag button
+  const btnBattleItems = $('btnBattleItems');
+  if (btnBattleItems) {
+    btnBattleItems.addEventListener('click', () => {
+      if (battleActive) showBattleItemBag();
+    });
+  }
+
   // ─── Load saved game on startup ───
   loadBestiary();
+  loadInventory();
   const saved = loadProgress();
   if (saved && saved.text) {
     const intro = document.querySelector('.intro-container');

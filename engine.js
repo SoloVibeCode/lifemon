@@ -376,5 +376,64 @@ const LifeEngine = (() => {
     return enemy;
   }
 
-  return { TYPES, REGIONS, generate, generateEnemy, generateRegionEnemy, hash, seededRandom };
+  // ─── Items ───
+  const ITEMS = {
+    pocion_vital:     { id: 'pocion_vital',     name: 'Pocion Vital',      icon: '🧪', desc: 'Recupera 30 HP en batalla',          category: 'consumible', rarity: 'comun',     heal: 30 },
+    pocion_super:     { id: 'pocion_super',     name: 'Pocion Super',      icon: '💊', desc: 'Recupera 60 HP en batalla',          category: 'consumible', rarity: 'raro',      heal: 60 },
+    elixir_maximo:    { id: 'elixir_maximo',    name: 'Elixir Maximo',     icon: '✨', desc: 'Recupera toda la HP y PP',           category: 'consumible', rarity: 'epico',     healFull: true },
+    cristal_fuerza:   { id: 'cristal_fuerza',   name: 'Cristal de Fuerza', icon: '🔴', desc: '+3 ATK permanente',                 category: 'cristal',    rarity: 'raro',      stat: 'atk', boost: 3 },
+    cristal_defensa:  { id: 'cristal_defensa',  name: 'Cristal Defensa',   icon: '🔵', desc: '+3 DEF permanente',                 category: 'cristal',    rarity: 'raro',      stat: 'def', boost: 3 },
+    cristal_velocidad:{ id: 'cristal_velocidad',name: 'Cristal Velocidad', icon: '🟢', desc: '+3 SPD permanente',                 category: 'cristal',    rarity: 'raro',      stat: 'spd', boost: 3 },
+    cristal_mental:   { id: 'cristal_mental',   name: 'Cristal Mental',    icon: '🟣', desc: '+3 INT permanente',                 category: 'cristal',    rarity: 'raro',      stat: 'int', boost: 3 },
+    baya_energia:     { id: 'baya_energia',     name: 'Baya Energia',      icon: '🫐', desc: '+50 XP bonus',                      category: 'consumible', rarity: 'comun',     xp: 50 },
+    piedra_evolutiva: { id: 'piedra_evolutiva', name: 'Piedra Evolutiva',  icon: '💎', desc: '+150 XP — acelera la evolucion',    category: 'consumible', rarity: 'epico',     xp: 150 },
+    amuleto_poder:    { id: 'amuleto_poder',    name: 'Amuleto de Poder',  icon: '🔥', desc: 'Proximo ataque hace x1.5 dano',     category: 'batalla',    rarity: 'raro',      buff: 'power' },
+    escudo_temporal:  { id: 'escudo_temporal',   name: 'Escudo Temporal',   icon: '🛡️', desc: 'Reduce el proximo dano un 50%',     category: 'batalla',    rarity: 'raro',      buff: 'shield' },
+    reliquia:         { id: 'reliquia',          name: 'Reliquia Ancestral',icon: '👑', desc: '+5 a todos los stats permanente',   category: 'cristal',    rarity: 'legendario', statAll: 5 },
+  };
+
+  const RARITY_WEIGHTS = { comun: 50, raro: 30, epico: 12, legendario: 3 };
+
+  // Drop table: returns array of item IDs
+  function rollItemDrops(enemyLevel, won) {
+    if (!won) return [];
+    const rng = seededRandom(Date.now() + enemyLevel * 7);
+
+    // Base drop chance: 55% for 1 item, +15% for 2nd, level bonus
+    const dropChance = 0.55 + Math.min(0.25, enemyLevel * 0.02);
+    const items = [];
+
+    for (let slot = 0; slot < 2; slot++) {
+      const roll = rng();
+      const threshold = slot === 0 ? dropChance : dropChance * 0.3;
+      if (roll > threshold) continue;
+
+      // Pick rarity based on weights + level bonus
+      const levelBonus = Math.min(20, enemyLevel * 2);
+      let totalWeight = 0;
+      const rarities = [];
+      for (const [rarity, weight] of Object.entries(RARITY_WEIGHTS)) {
+        const adj = rarity === 'comun' ? Math.max(10, weight - levelBonus) :
+                    rarity === 'legendario' ? weight + Math.floor(levelBonus / 4) :
+                    weight + Math.floor(levelBonus / 2);
+        totalWeight += adj;
+        rarities.push({ rarity, weight: adj, cumulative: totalWeight });
+      }
+
+      const pick = rng() * totalWeight;
+      let chosenRarity = 'comun';
+      for (const r of rarities) {
+        if (pick <= r.cumulative) { chosenRarity = r.rarity; break; }
+      }
+
+      // Pick random item of that rarity
+      const pool = Object.values(ITEMS).filter(i => i.rarity === chosenRarity);
+      if (pool.length > 0) {
+        items.push(pool[Math.floor(rng() * pool.length)].id);
+      }
+    }
+    return items;
+  }
+
+  return { TYPES, REGIONS, ITEMS, generate, generateEnemy, generateRegionEnemy, rollItemDrops, hash, seededRandom };
 })();

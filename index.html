@@ -91,9 +91,14 @@
         <span id="exploreWins">0 victorias</span>
         <span id="exploreBattles">0 batallas</span>
       </div>
-      <button class="btn-bestiary" id="btnBestiary">
-        <span>📖</span> Bestiario <span class="bestiary-badge" id="bestiaryBadge">0</span>
-      </button>
+      <div class="explore-buttons">
+        <button class="btn-bestiary" id="btnBestiary">
+          <span>📖</span> Bestiario <span class="bestiary-badge" id="bestiaryBadge">0</span>
+        </button>
+        <button class="btn-bestiary" id="btnInventory">
+          <span>🎒</span> Mochila <span class="bestiary-badge" id="inventoryBadge">0</span>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -143,6 +148,7 @@
       <div class="result-icon" id="resultIcon"></div>
       <h2 class="result-title" id="resultTitle"></h2>
       <p class="result-text" id="resultText"></p>
+      <div class="result-drops" id="resultDrops"></div>
       <div class="result-xp" id="resultXpBar"></div>
       <div class="result-actions">
         <button class="btn-primary" id="btnPlayAgain">
@@ -171,6 +177,19 @@
       </div>
       <p class="bestiary-subtitle">Criaturas que has encontrado en tus aventuras</p>
       <div class="bestiary-grid" id="bestiaryGrid"></div>
+    </div>
+  </div>
+
+  <!-- SCREEN: Inventory -->
+  <div class="screen" id="screen-inventory">
+    <div class="inventory-container">
+      <div class="inventory-header">
+        <button class="btn-back" id="btnBackFromInventory">← Explorar</button>
+        <h2 class="inventory-title">Mochila</h2>
+        <span class="inventory-count" id="inventoryCount"></span>
+      </div>
+      <p class="inventory-subtitle">Objetos recogidos en tus aventuras</p>
+      <div class="inventory-grid" id="inventoryGrid"></div>
     </div>
   </div>
 
